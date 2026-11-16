@@ -1,0 +1,13 @@
+{
+    "extends": "./tsconfig.json",
+    "compilerOptions": {
+        "checkJs": false,
+        "baseUrl": "./",
+        "paths": {
+            "@/*": ["resources/js/*"],
+            "ziggy-js": ["./vendor/tightenco/ziggy"]
+        }
+    },
+    "include": ["resources/js/**/*.js", "resources/js/**/*.jsx", "resources/js/types/vite-env.d.ts"],
+    "exclude": ["node_modules", "vendor", "public"]
+}

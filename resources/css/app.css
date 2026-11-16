@@ -1,0 +1,299 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+    :root {
+        --canvas: 244 247 249;
+        --surface: 255 255 255;
+        --line: 226 232 240;
+        --ink: 15 23 42;
+        --muted: 100 116 139;
+    }
+
+    .dark {
+        --canvas: 9 15 23;
+        --surface: 17 25 36;
+        --line: 34 45 58;
+        --ink: 226 232 240;
+        --muted: 148 163 184;
+    }
+
+    html {
+        -webkit-text-size-adjust: 100%;
+        scroll-behavior: smooth;
+    }
+
+    body {
+        @apply bg-canvas font-sans text-ink antialiased;
+        font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+    }
+
+    ::selection {
+        @apply bg-brand-500/25 text-ink;
+    }
+
+    /* Keep native form controls aligned with the active theme. */
+    .dark input,
+    .dark select,
+    .dark textarea {
+        color-scheme: dark;
+    }
+}
+
+@layer components {
+    .eec-scrollbar {
+        scrollbar-width: thin;
+        scrollbar-color: rgb(var(--line)) transparent;
+    }
+
+    .eec-scrollbar::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+    }
+
+    .eec-scrollbar::-webkit-scrollbar-track {
+        background: transparent;
+    }
+
+    .eec-scrollbar::-webkit-scrollbar-thumb {
+        border-radius: 9999px;
+        background-color: rgb(var(--line));
+    }
+
+    .eec-scrollbar::-webkit-scrollbar-thumb:hover {
+        background-color: rgb(var(--muted) / 0.6);
+    }
+
+    .focus-ring {
+        @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/60 focus-visible:ring-offset-2 focus-visible:ring-offset-surface;
+    }
+}
+
+@layer utilities {
+    .tabular {
+        font-variant-numeric: tabular-nums;
+    }
+
+    .text-balance {
+        text-wrap: balance;
+    }
+}
+
+/* ---------------------------------------------------------------------------
+   GIS map
+   Leaflet ships its own controls and panes; these rules align them with the
+   application theme and replace the default marker assets with divIcons.
+--------------------------------------------------------------------------- */
+
+.eec-map-shell .leaflet-container {
+    height: 100%;
+    width: 100%;
+    background: rgb(var(--canvas));
+    font-family: inherit;
+}
+
+.eec-map-shell:fullscreen {
+    height: 100vh !important;
+    border-radius: 0;
+}
+
+.eec-map-shell:fullscreen .leaflet-container {
+    height: 100%;
+}
+
+.eec-map-shell .leaflet-control-attribution {
+    background: rgb(var(--surface) / 0.85);
+    color: rgb(var(--muted));
+    font-size: 9px;
+}
+
+.eec-map-shell .leaflet-control-attribution a {
+    color: rgb(var(--muted));
+}
+
+.eec-map-shell .leaflet-bar a,
+.eec-map-shell .leaflet-control-zoom a {
+    background: rgb(var(--surface));
+    border-color: rgb(var(--line));
+    color: rgb(var(--ink));
+}
+
+.eec-map-shell .leaflet-bar a:hover {
+    background: rgb(var(--canvas));
+    color: rgb(var(--ink));
+}
+
+.eec-map-shell .leaflet-control-scale-line {
+    background: rgb(var(--surface) / 0.8);
+    border-color: rgb(var(--muted));
+    color: rgb(var(--muted));
+    font-size: 9px;
+}
+
+.eec-station-marker-wrapper {
+    background: transparent;
+    border: 0;
+}
+
+.eec-station-marker {
+    display: grid;
+    place-items: center;
+    width: 26px;
+    height: 26px;
+    border-radius: 999px;
+    background: var(--station-color, #1f6076);
+    color: #fff;
+    border: 2px solid rgb(255 255 255 / 0.92);
+    box-shadow: 0 2px 6px rgb(15 23 42 / 0.28);
+}
+
+.eec-station-marker svg {
+    width: 14px;
+    height: 14px;
+}
+
+.dark .eec-station-marker {
+    border-color: rgb(15 23 42 / 0.75);
+}
+
+.eec-cluster-wrapper {
+    background: transparent;
+    border: 0;
+}
+
+.eec-cluster {
+    display: grid;
+    place-items: center;
+    border-radius: 999px;
+    background: #1f6076;
+    color: #fff;
+    font-size: 11px;
+    font-weight: 600;
+    border: 3px solid rgb(255 255 255 / 0.9);
+    box-shadow: 0 2px 10px rgb(15 23 42 / 0.3);
+}
+
+.dark .eec-cluster {
+    background: #2c7f97;
+    border-color: rgb(15 23 42 / 0.8);
+}
+
+.eec-map-tooltip {
+    border: 1px solid rgb(var(--line));
+    background: rgb(var(--surface));
+    color: rgb(var(--ink));
+    font-size: 11px;
+    font-weight: 500;
+    padding: 3px 7px;
+    border-radius: 6px;
+    box-shadow: 0 2px 8px rgb(15 23 42 / 0.15);
+}
+
+.eec-map-tooltip::before {
+    display: none;
+}
+
+/* ---------------------------------------------------------------------------
+   Welcome preview
+   Schematic basin preview on the public landing page: pulsing gauge points,
+   a slow orbit around the selected basin and restrained entrance motion.
+--------------------------------------------------------------------------- */
+
+.welcome-gauge-wrap {
+    background: transparent;
+    border: 0;
+}
+
+.welcome-gauge {
+    position: relative;
+    display: grid;
+    place-items: center;
+    width: 16px;
+    height: 16px;
+}
+
+.welcome-gauge::after {
+    content: '';
+    width: 9px;
+    height: 9px;
+    border-radius: 9999px;
+    background: #f59e0b;
+    border: 2px solid #fff;
+    box-shadow: 0 1px 4px rgb(15 23 42 / 0.35);
+}
+
+.welcome-gauge-ring {
+    position: absolute;
+    inset: 0;
+    border-radius: 9999px;
+    border: 1.5px solid rgb(245 158 11 / 0.7);
+    animation: welcome-pulse 2.6s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+.welcome-orbit {
+    stroke-dasharray: 4 5;
+    animation: welcome-orbit 16s linear infinite;
+}
+
+.eec-map-shell .welcome-basin-label {
+    background: rgb(var(--surface) / 0.92);
+    border-color: rgb(var(--line) / 0.9);
+    color: rgb(var(--ink));
+    font-size: 9.5px;
+    font-weight: 600;
+    padding: 1px 6px;
+    pointer-events: none;
+    white-space: nowrap;
+}
+
+.welcome-pipeline-line {
+    stroke-dasharray: 2 2;
+    animation: welcome-orbit 1.4s linear infinite;
+}
+
+@keyframes welcome-pulse {
+    0% {
+        transform: scale(0.55);
+        opacity: 0.9;
+    }
+
+    70%,
+    100% {
+        transform: scale(2.6);
+        opacity: 0;
+    }
+}
+
+@keyframes welcome-orbit {
+    to {
+        stroke-dashoffset: -180;
+    }
+}
+
+@keyframes welcome-rise {
+    from {
+        opacity: 0;
+        transform: translateY(16px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@layer utilities {
+    .welcome-reveal {
+        animation: welcome-rise 650ms cubic-bezier(0.22, 1, 0.36, 1) both;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .welcome-reveal,
+    .welcome-gauge-ring,
+    .welcome-orbit,
+    .welcome-pipeline-line {
+        animation: none !important;
+    }
+}
