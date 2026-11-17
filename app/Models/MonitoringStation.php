@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class MonitoringStation extends Model
@@ -52,6 +53,11 @@ class MonitoringStation extends Model
         return $this->belongsTo(Basin::class);
     }
 
+    public function category(): BelongsTo
+    {
+        return $this->belongsTo(StationCategory::class, 'station_type', 'code');
+    }
+
     public function subBasin(): BelongsTo
     {
         return $this->belongsTo(SubBasin::class);
@@ -87,6 +93,16 @@ class MonitoringStation extends Model
     public function qualityIssues(): HasMany
     {
         return $this->hasMany(DataQualityIssue::class);
+    }
+
+    public function documents(): MorphMany
+    {
+        return $this->morphMany(Document::class, 'documentable');
+    }
+
+    public function activityLogs(): MorphMany
+    {
+        return $this->morphMany(ActivityLog::class, 'subject');
     }
 
     /**

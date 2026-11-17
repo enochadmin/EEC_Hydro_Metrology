@@ -130,15 +130,20 @@ class ExcelTransformationController extends Controller
 
     public function compare(DataImportBatch $batch): RedirectResponse
     {
-        if (! $batch->sheet_name) {
-            return back()->with('error', 'Choose a worksheet before comparing.');
+        if (! $batch->sheet_name || ! $batch->structure_type || ! $batch->mapping) {
+            return back()->with('error', 'Choose a worksheet and complete its mapping before comparing.');
         }
 
-        $result = $this->comparison->compare($batch, $batch->sheet_name, $batch->mapping ?? []);
+        try {
+            $this->transformer->transform($batch, $batch->sheet_name, $batch->structure_type, $batch->mapping);
+            $result = $this->comparison->compare($batch->refresh());
+        } catch (RuntimeException $exception) {
+            return back()->with('error', $exception->getMessage());
+        }
 
         return redirect()
             ->route('excel.comparison', $batch)
-            ->with($result['available'] ? 'success' : 'error', $result['available'] ? 'Comparison completed.' : $result['message']);
+            ->with('success', 'Source and generated output compared. '.$result['counts']['changed'].' changed record(s) need review.');
     }
 
     /**

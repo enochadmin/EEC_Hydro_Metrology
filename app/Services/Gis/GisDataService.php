@@ -248,6 +248,7 @@ class GisDataService
                 ],
                 'properties' => [
                     'id' => $station->id,
+                    'href' => '/stations/'.$station->id,
                     'code' => $station->code,
                     'name' => $station->name,
                     'station_type' => $station->station_type,
@@ -311,6 +312,7 @@ class GisDataService
         return [
             'station' => [
                 'id' => $station->id,
+                'href' => '/stations/'.$station->id,
                 'code' => $station->code,
                 'name' => $station->name,
                 'name_alt' => $station->name_alt,

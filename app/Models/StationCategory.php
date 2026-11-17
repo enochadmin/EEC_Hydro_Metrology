@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /**
  * Display metadata for a station type. `code` must match one of the values in
@@ -25,5 +26,10 @@ class StationCategory extends Model
             'is_active' => 'boolean',
             'sort_order' => 'integer',
         ];
+    }
+
+    public function stations(): HasMany
+    {
+        return $this->hasMany(MonitoringStation::class, 'station_type', 'code');
     }
 }

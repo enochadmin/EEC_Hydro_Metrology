@@ -40,6 +40,16 @@ configured).
 - The layer panel toggles boundaries, sub-basins, stations and reference layers.
   Layers without a loaded dataset are hidden rather than drawn empty.
 
+## Monitoring stations
+
+Open **Hydrological data → Monitoring stations** to search, filter and page
+through registered stations. Users with station-management permission can
+register or edit stations, assign a basin, optional sub-basin and parameters,
+and archive stations when they are retired. Open a station to view its overview,
+geographic location, parameters, historical observations, data availability,
+documents and activity history. Use **Open on map** to view a station in GIS;
+station markers can also be opened from the GIS map.
+
 ## Excel import
 
 1. **Upload** a workbook (`.xlsx`, `.xls`, `.csv`). The original file is kept

@@ -18,6 +18,15 @@ class ExcelExportController extends Controller
             ->deleteFileAfterSend(true);
     }
 
+    public function columnBased(DataImportBatch $batch, ExcelExportService $exports): BinaryFileResponse
+    {
+        $file = $exports->columnBasedWorkbook($batch);
+
+        return response()
+            ->download($file['path'], $file['name'])
+            ->deleteFileAfterSend(true);
+    }
+
     public function errors(DataImportBatch $batch, ExcelExportService $exports): BinaryFileResponse
     {
         $file = $exports->errorReport($batch);

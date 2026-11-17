@@ -72,6 +72,10 @@ export function activityLabel(event) {
         'sub-basin.deleted': 'Sub-basin deleted',
         'sub-basin.boundary.imported': 'Boundary imported',
         'sub-basin.boundary.deleted': 'Boundary removed',
+        'monitoring_station.created': 'Station registered',
+        'monitoring_station.updated': 'Station updated',
+        'monitoring_station.deleted': 'Station archived',
+        'monitoring_station.parameters_updated': 'Station parameters updated',
         'document.uploaded': 'Document uploaded',
         'document.deleted': 'Document removed',
     };

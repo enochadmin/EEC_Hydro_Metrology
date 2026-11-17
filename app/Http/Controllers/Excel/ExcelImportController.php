@@ -7,8 +7,10 @@ use App\Http\Requests\Excel\ImportExcelRequest;
 use App\Http\Requests\Excel\StoreExcelUploadRequest;
 use App\Models\DataImportBatch;
 use App\Services\Excel\ExcelFileService;
+use App\Services\Excel\ExcelImportBatchDeletionService;
 use App\Services\Excel\ExcelImportService;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -107,6 +109,21 @@ class ExcelImportController extends Controller
             ->through(fn (DataImportBatch $batch): array => $this->batchRow($batch));
 
         return Inertia::render('Excel/ImportHistory', ['batches' => $batches]);
+    }
+
+    public function destroy(Request $request, DataImportBatch $batch, ExcelImportBatchDeletionService $deletion): RedirectResponse
+    {
+        abort_unless($request->user()?->can('delete data'), 403);
+
+        $fileName = $batch->file_name;
+        $result = $deletion->delete($batch);
+        $message = 'Workbook "'.$fileName.'" and '.$result['observations_deleted'].' imported observation(s) deleted.';
+
+        if (! $result['files_removed']) {
+            return back()->with('warning', $message.' The private workbook files could not be fully removed; check the application storage logs.');
+        }
+
+        return back()->with('success', $message.' Station records were retained.');
     }
 
     /**

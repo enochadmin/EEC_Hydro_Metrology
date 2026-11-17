@@ -236,6 +236,8 @@ export function StationInfoPanel({ detail }) {
                     Open {station.basin.code} basin record
                 </Link>
             )}
+
+            <PanelLink href={station.href}>Open station details</PanelLink>
         </div>
     );
 }

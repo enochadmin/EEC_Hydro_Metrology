@@ -20,6 +20,7 @@ use App\Http\Controllers\Settings\AppearanceController;
 use App\Http\Controllers\Settings\PasswordController;
 use App\Http\Controllers\Settings\ProfileController;
 use App\Http\Controllers\Settings\SystemSettingsController;
+use App\Http\Controllers\Stations\MonitoringStationController;
 use App\Http\Controllers\Users\UserController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -282,6 +283,48 @@ Route::middleware('auth')->group(function () {
             ->middleware('permission:edit sub-basins')
             ->name('documents.destroy');
     });
+
+    Route::prefix('stations')->name('stations.')->group(function () {
+        Route::get('/', [MonitoringStationController::class, 'index'])
+            ->middleware('permission:view stations')
+            ->name('index');
+
+        Route::get('create', [MonitoringStationController::class, 'create'])
+            ->middleware('permission:create stations')
+            ->name('create');
+
+        Route::post('/', [MonitoringStationController::class, 'store'])
+            ->middleware('permission:create stations')
+            ->name('store');
+
+        Route::get('{station}/edit', [MonitoringStationController::class, 'edit'])
+            ->middleware('permission:edit stations')
+            ->name('edit');
+
+        Route::patch('{station}', [MonitoringStationController::class, 'update'])
+            ->middleware('permission:edit stations')
+            ->name('update');
+
+        Route::delete('{station}', [MonitoringStationController::class, 'destroy'])
+            ->middleware('permission:delete stations')
+            ->name('destroy');
+
+        Route::post('{station}/documents', [MonitoringStationController::class, 'storeDocument'])
+            ->middleware('permission:edit stations')
+            ->name('documents.store');
+
+        Route::get('{station}/documents/{document}/download', [MonitoringStationController::class, 'downloadDocument'])
+            ->middleware('permission:view stations')
+            ->name('documents.download');
+
+        Route::delete('{station}/documents/{document}', [MonitoringStationController::class, 'destroyDocument'])
+            ->middleware('permission:edit stations')
+            ->name('documents.destroy');
+
+        Route::get('{station}', [MonitoringStationController::class, 'show'])
+            ->middleware('permission:view stations')
+            ->name('show');
+    });
 });
 
 /*
@@ -372,6 +415,10 @@ Route::prefix('excel')->middleware('auth')->name('excel.')->group(function () {
         ->middleware('permission:view data')
         ->name('history');
 
+    Route::delete('{batch:uuid}', [ExcelImportController::class, 'destroy'])
+        ->middleware('permission:delete data')
+        ->name('destroy');
+
     Route::get('{batch:uuid}/preview', [ExcelPreviewController::class, 'show'])
         ->middleware('permission:view data')
         ->name('preview');
@@ -415,6 +462,10 @@ Route::prefix('excel')->middleware('auth')->name('excel.')->group(function () {
     Route::get('{batch:uuid}/export/transformed', [ExcelExportController::class, 'transformed'])
         ->middleware('permission:export data')
         ->name('export.transformed');
+
+    Route::get('{batch:uuid}/export/column-based', [ExcelExportController::class, 'columnBased'])
+        ->middleware('permission:export data')
+        ->name('export.column_based');
 
     Route::get('{batch:uuid}/export/errors', [ExcelExportController::class, 'errors'])
         ->middleware('permission:export data')

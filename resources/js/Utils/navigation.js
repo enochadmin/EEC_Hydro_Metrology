@@ -60,7 +60,7 @@ export const navigationGroups = [
                 href: '/stations',
                 icon: RadioTower,
                 permission: 'view stations',
-                phase: 7,
+                available: true,
             },
             {
                 key: 'imports',

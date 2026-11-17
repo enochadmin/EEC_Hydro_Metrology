@@ -1,5 +1,6 @@
 import Badge from '@/Components/Badge';
 import EmptyState from '@/Components/EmptyState';
+import DeleteExcelBatchAction from '@/Components/excel/DeleteExcelBatchAction';
 import PageHeader from '@/Components/PageHeader';
 import Pagination from '@/Components/Pagination';
 import AppLayout from '@/Layouts/AppLayout';
@@ -13,10 +14,7 @@ export default function ImportHistory({ batches }) {
         <AppLayout breadcrumbs={[{ label: 'Excel', href: '/excel' }, { label: 'Import history' }]}>
             <Head title="Import history" />
 
-            <PageHeader
-                title="Import history"
-                description="Uploads and committed records."
-            />
+            <PageHeader title="Import history" description="Uploads and committed records." />
 
             <div className="mt-6 overflow-hidden rounded-xl border border-line bg-surface">
                 {batches.data.length === 0 ? (
@@ -38,14 +36,18 @@ export default function ImportHistory({ batches }) {
                                     <th className="px-4 py-2.5 text-right font-semibold">Missing</th>
                                     <th className="px-4 py-2.5 text-right font-semibold">Invalid</th>
                                     <th className="px-4 py-2.5 font-semibold">Status</th>
-                                    <th className="px-4 py-2.5 pr-5 text-right font-semibold">Stage</th>
+                                    <th className="px-4 py-2.5 text-right font-semibold">Stage</th>
+                                    <th className="px-4 py-2.5 pr-5 text-right font-semibold">Actions</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-line">
                                 {batches.data.map((batch) => (
                                     <tr key={batch.uuid} className="hover:bg-canvas/40">
                                         <td className="px-5 py-3">
-                                            <Link href={`/excel/${batch.uuid}/preview`} className="max-w-[230px] truncate text-[12.5px] font-medium text-ink hover:text-brand-700 dark:hover:text-brand-300">
+                                            <Link
+                                                href={`/excel/${batch.uuid}/preview`}
+                                                className="max-w-[230px] truncate text-[12.5px] font-medium text-ink hover:text-brand-700 dark:hover:text-brand-300"
+                                            >
                                                 {batch.file_name}
                                             </Link>
                                             <p className="text-[10.5px] text-muted">{new Date(batch.created_at).toLocaleString()}</p>
@@ -53,11 +55,26 @@ export default function ImportHistory({ batches }) {
                                         <td className="max-w-[160px] truncate px-4 py-3 text-[11.5px] text-muted">{batch.sheet_name ?? '—'}</td>
                                         <td className="px-4 py-3 text-[11.5px] text-muted">{batch.uploaded_by ?? '—'}</td>
                                         <td className="px-4 py-3 text-[11px] text-muted">{structureLabel(batch.structure_type)}</td>
-                                        <td className="px-4 py-3 text-right text-[12px] tabular text-ink">{formatNumber(batch.imported_rows)}</td>
-                                        <td className="px-4 py-3 text-right text-[12px] tabular text-amber-600 dark:text-amber-400">{formatNumber(batch.summary?.missing_measurements ?? 0)}</td>
-                                        <td className="px-4 py-3 text-right text-[12px] tabular text-rose-600 dark:text-rose-400">{formatNumber(batch.rejected_rows)}</td>
-                                        <td className="px-4 py-3"><Badge tone={batchTone(batch.status)} size="sm">{batch.status.replaceAll('_', ' ')}</Badge></td>
-                                        <td className="px-4 py-3 pr-5 text-right"><Badge tone={stageTone(batch.stage)} size="sm">{stageLabel(batch.stage)}</Badge></td>
+                                        <td className="tabular px-4 py-3 text-right text-[12px] text-ink">{formatNumber(batch.imported_rows)}</td>
+                                        <td className="tabular px-4 py-3 text-right text-[12px] text-amber-600 dark:text-amber-400">
+                                            {formatNumber(batch.summary?.missing_measurements ?? 0)}
+                                        </td>
+                                        <td className="tabular px-4 py-3 text-right text-[12px] text-rose-600 dark:text-rose-400">
+                                            {formatNumber(batch.rejected_rows)}
+                                        </td>
+                                        <td className="px-4 py-3">
+                                            <Badge tone={batchTone(batch.status)} size="sm">
+                                                {batch.status.replaceAll('_', ' ')}
+                                            </Badge>
+                                        </td>
+                                        <td className="px-4 py-3 text-right">
+                                            <Badge tone={stageTone(batch.stage)} size="sm">
+                                                {stageLabel(batch.stage)}
+                                            </Badge>
+                                        </td>
+                                        <td className="px-4 py-3 pr-5 text-right">
+                                            <DeleteExcelBatchAction batch={batch} />
+                                        </td>
                                     </tr>
                                 ))}
                             </tbody>

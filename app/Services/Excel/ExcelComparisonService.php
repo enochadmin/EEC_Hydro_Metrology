@@ -3,264 +3,137 @@
 namespace App\Services\Excel;
 
 use App\Models\DataImportBatch;
-use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\Storage;
+use RuntimeException;
 
 /**
- * Compares the matrix region of a sheet with its date/value series.
- *
- * The supplied workbook's column B is a chain of formulas (`=D4`, `=D5`…) that
- * mirrors the matrix. The comparison therefore resolves each formula to the
- * matrix cell it points at, checks that the referenced cell's calendar date
- * matches the date in column A, and only then compares values. This exposes
- * alignment errors instead of trusting the flattened series.
+ * Compares generated observation rows with the source workbook cells recorded
+ * during transformation.
  */
 class ExcelComparisonService
 {
-    public function __construct(
-        private readonly ExcelFileService $files,
-        private readonly ExcelStructureDetectionService $detector,
-        private readonly ExcelTransformationService $transformer,
-    ) {}
+    private const CHANGE_SAMPLE_LIMIT = 150;
+
+    public function __construct(private readonly ExcelTransformationService $transformer) {}
 
     /**
-     * @param  array<string, mixed>  $mapping
      * @return array<string, mixed>
      */
-    public function compare(DataImportBatch $batch, string $sheetName, array $mapping = []): array
+    public function compare(DataImportBatch $batch): array
     {
-        $detected = $this->detector->detect($batch, $sheetName);
-        $matrix = null;
-        $daily = null;
-
-        foreach ($detected['candidates'] as $candidate) {
-            if ($candidate['key'] === 'multi_header_matrix') {
-                $matrix = $candidate;
-            }
-
-            if ($candidate['key'] === 'daily_series') {
-                $daily = $candidate;
-            }
+        if (! $batch->transformed_path) {
+            throw new RuntimeException('Generate the transformed dataset before comparing it with the source workbook.');
         }
 
-        if ($matrix === null || $daily === null) {
-            $result = [
-                'available' => false,
-                'message' => 'Comparison needs both a multi-header matrix and a date/value series on the same sheet.',
-                'compared_at' => now()->toIso8601String(),
-            ];
+        $path = Storage::disk('local')->path($batch->transformed_path);
 
-            $batch->forceFill(['comparison' => $result, 'stage' => 'compared'])->save();
-
-            return $result;
+        if (! is_file($path)) {
+            throw new RuntimeException('The generated dataset is missing from private storage. Regenerate the transformation and compare again.');
         }
 
-        $periods = $mapping['periods'] ?? $matrix['periods'];
-        $dayRowStart = (int) ($mapping['day_rows']['start'] ?? $matrix['day_rows']['start']);
-        $dayColumn = $mapping['day_column'] ?? $matrix['day_column'];
+        $handle = fopen($path, 'rb');
 
-        $matrixRows = $this->files->readRows($batch, $sheetName, 1, 40, null, null);
-
-        $periodByColumn = [];
-
-        foreach ($periods as $period) {
-            $periodByColumn[$period['column']] = $period;
+        if ($handle === false) {
+            throw new RuntimeException('The generated dataset could not be read for comparison.');
         }
 
-        $matrixMap = [];
-        $matrixValid = 0;
-        $matrixMissing = 0;
-        $matrixInvalid = 0;
+        $counts = [
+            'total' => 0,
+            'preserved' => 0,
+            'changed' => 0,
+            'missing' => 0,
+            'invalid' => 0,
+            'formulas_resolved' => 0,
+        ];
+        $changes = [];
 
-        foreach ($periods as $period) {
-            $year = (int) $period['year'];
-            $month = (int) $period['month'];
-            $column = $period['column'];
+        try {
+            while (($line = fgets($handle)) !== false) {
+                $row = json_decode(trim($line), true);
 
-            if (! checkdate($month, 1, $year)) {
-                continue;
-            }
-
-            $daysInMonth = CarbonImmutable::create($year, $month, 1)->daysInMonth;
-
-            for ($day = 1; $day <= $daysInMonth; $day++) {
-                $row = $dayRowStart + $day - 1;
-                $date = sprintf('%04d-%02d-%02d', $year, $month, $day);
-                $raw = $matrixRows[$row][$column] ?? null;
-                [$status, $value] = $this->transformer->classify($raw);
-
-                $matrixMap[$date] = ['value' => $value, 'status' => $status, 'cell' => $column.$row];
-
-                if ($status === 'valid') {
-                    $matrixValid++;
-                } elseif ($status === 'missing') {
-                    $matrixMissing++;
-                } else {
-                    $matrixInvalid++;
-                }
-            }
-        }
-
-        $series = $this->files->readDailyColumns(
-            $batch,
-            $sheetName,
-            $daily['date_column'],
-            $daily['value_column'],
-        );
-
-        $dailyMap = [];
-        $dailyValid = 0;
-        $dailyMissing = 0;
-        $dailyInvalid = 0;
-        $formulaRows = 0;
-        $alignmentErrors = [];
-        $valueDifferences = [];
-
-        foreach ($series as $rowNumber => $entry) {
-            $date = $this->transformer->date($entry['date']);
-
-            if ($date === null) {
-                $dailyInvalid++;
-
-                continue;
-            }
-
-            $dateKey = $date->format('Y-m-d');
-            $raw = $entry['value'];
-            $formula = $entry['formula'];
-
-            if ($formula !== null) {
-                $formulaRows++;
-
-                if (preg_match('/^=\s*([A-Z]{1,3})(\d+)$/', $formula, $matches)) {
-                    $column = $matches[1];
-                    $row = (int) $matches[2];
-                    $period = $periodByColumn[$column] ?? null;
-                    $day = $row - $dayRowStart + 1;
-
-                    if ($period === null || $day < 1 || $day > 31) {
-                        $alignmentErrors[] = [
-                            'date' => $dateKey,
-                            'row' => $rowNumber,
-                            'formula' => $formula,
-                            'message' => 'The formula points outside the monthly matrix.',
-                        ];
-
-                        continue;
-                    }
-
-                    $expected = sprintf('%04d-%02d-%02d', (int) $period['year'], (int) $period['month'], $day);
-
-                    if ($expected !== $dateKey) {
-                        $alignmentErrors[] = [
-                            'date' => $dateKey,
-                            'row' => $rowNumber,
-                            'formula' => $formula,
-                            'expected_date' => $expected,
-                            'message' => 'The date in column A does not match the matrix cell referenced by the formula.',
-                        ];
-                    }
-
-                    $raw = $matrixRows[$row][$column] ?? null;
-                } else {
-                    $alignmentErrors[] = [
-                        'date' => $dateKey,
-                        'row' => $rowNumber,
-                        'formula' => $formula,
-                        'message' => 'The formula cannot be resolved to a matrix cell.',
-                    ];
-
+                if (! is_array($row)) {
                     continue;
                 }
-            }
 
-            [$status, $value] = $this->transformer->classify($raw);
+                $counts['total']++;
+                $sourceValue = $row['source_value'] ?? null;
+                $sourceValueAvailable = array_key_exists('source_value', $row);
+                $generatedStatus = (string) ($row['status'] ?? 'invalid');
+                $generatedValue = $row['value'] ?? null;
+                $changeType = $this->changeType(
+                    $sourceValue,
+                    $sourceValueAvailable,
+                    $generatedStatus,
+                    $generatedValue,
+                );
 
-            $dailyMap[$dateKey] = ['value' => $value, 'status' => $status, 'row' => $rowNumber];
+                $counts[$changeType]++;
 
-            if ($status === 'valid') {
-                $dailyValid++;
-            } elseif ($status === 'missing') {
-                $dailyMissing++;
-            } else {
-                $dailyInvalid++;
-            }
-        }
-
-        $matching = 0;
-        $different = 0;
-        $missingInDaily = 0;
-        $missingInMatrix = 0;
-        $missingValues = 0;
-
-        foreach ($matrixMap as $date => $matrixEntry) {
-            if (! isset($dailyMap[$date])) {
-                $missingInDaily++;
-
-                continue;
-            }
-
-            $dailyEntry = $dailyMap[$date];
-
-            if ($matrixEntry['status'] === 'valid' && $dailyEntry['status'] === 'valid') {
-                if (abs((float) $matrixEntry['value'] - (float) $dailyEntry['value']) <= 0.000001) {
-                    $matching++;
-                } else {
-                    $different++;
-
-                    if (count($valueDifferences) < 100) {
-                        $valueDifferences[] = [
-                            'date' => $date,
-                            'matrix' => $matrixEntry['value'],
-                            'daily' => $dailyEntry['value'],
-                            'matrix_cell' => $matrixEntry['cell'],
-                            'daily_row' => $dailyEntry['row'],
-                        ];
-                    }
+                if ($changeType === 'preserved') {
+                    continue;
                 }
-            } elseif ($matrixEntry['status'] !== 'valid' || $dailyEntry['status'] !== 'valid') {
-                $missingValues++;
-            }
-        }
 
-        foreach ($dailyMap as $date => $entry) {
-            if (! isset($matrixMap[$date])) {
-                $missingInMatrix++;
+                if (count($changes) < self::CHANGE_SAMPLE_LIMIT) {
+                    $changes[] = [
+                        'change_type' => $changeType,
+                        'source_cell' => $row['source_cell'] ?? null,
+                        'source_value' => $sourceValue,
+                        'date' => $row['date'] ?? null,
+                        'station' => $row['station_name'] ?? null,
+                        'parameter' => $row['parameter'] ?? null,
+                        'generated_value' => $generatedValue,
+                        'generated_status' => $generatedStatus,
+                        'message' => $row['message'] ?? null,
+                    ];
+                }
             }
+        } finally {
+            fclose($handle);
         }
 
         $result = [
             'available' => true,
             'compared_at' => now()->toIso8601String(),
-            'sheet' => $sheetName,
-            'matrix' => [
-                'dates' => count($matrixMap),
-                'valid' => $matrixValid,
-                'missing' => $matrixMissing,
-                'invalid' => $matrixInvalid,
-            ],
-            'daily' => [
-                'dates' => count($dailyMap),
-                'valid' => $dailyValid,
-                'missing' => $dailyMissing,
-                'invalid' => $dailyInvalid,
-                'formula_rows' => $formulaRows,
-            ],
-            'matching' => $matching,
-            'different' => $different,
-            'missing_in_daily' => $missingInDaily,
-            'missing_in_matrix' => $missingInMatrix,
-            'missing_values' => $missingValues,
-            'alignment_errors' => count($alignmentErrors),
-            'alignment_samples' => array_slice($alignmentErrors, 0, 50),
-            'value_differences' => $valueDifferences,
-            'formula_mirror' => $formulaRows > 0,
-            'note' => $formulaRows > 0
-                ? 'The date/value series is formula-linked to the matrix; differences reflect blank/missing handling, not independent measurements.'
-                : 'The date/value series is independent of the matrix and was compared cell by cell.',
+            'source_sheet' => $batch->sheet_name,
+            'generated_structure' => $batch->structure_type,
+            'counts' => $counts,
+            'changes' => $changes,
+            'changes_truncated' => ($counts['total'] - $counts['preserved']) > self::CHANGE_SAMPLE_LIMIT,
         ];
 
         $batch->forceFill(['comparison' => $result, 'stage' => 'compared'])->save();
 
         return $result;
+    }
+
+    private function changeType(mixed $sourceValue, bool $sourceValueAvailable, string $generatedStatus, mixed $generatedValue): string
+    {
+        if (! $sourceValueAvailable) {
+            return 'invalid';
+        }
+
+        if (is_string($sourceValue) && str_starts_with(trim($sourceValue), '=')) {
+            return $generatedStatus === ExcelTransformationService::STATUS_VALID
+                ? 'formulas_resolved'
+                : 'changed';
+        }
+
+        [$sourceStatus, $sourceNumericValue] = $this->transformer->classify($sourceValue);
+
+        if ($sourceStatus !== $generatedStatus) {
+            return 'changed';
+        }
+
+        if ($generatedStatus === ExcelTransformationService::STATUS_VALID) {
+            return abs((float) $sourceNumericValue - (float) $generatedValue) <= 0.000001
+                ? 'preserved'
+                : 'changed';
+        }
+
+        return match ($generatedStatus) {
+            ExcelTransformationService::STATUS_MISSING => 'missing',
+            ExcelTransformationService::STATUS_INVALID => 'invalid',
+            default => 'changed',
+        };
     }
 }

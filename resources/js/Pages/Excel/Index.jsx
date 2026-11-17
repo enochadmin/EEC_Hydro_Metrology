@@ -3,6 +3,7 @@ import Button from '@/Components/Button';
 import Can from '@/Components/Can';
 import { Card, CardHeader } from '@/Components/Card';
 import EmptyState from '@/Components/EmptyState';
+import DeleteExcelBatchAction from '@/Components/excel/DeleteExcelBatchAction';
 import PageHeader from '@/Components/PageHeader';
 import AppLayout from '@/Layouts/AppLayout';
 import { stageLabel, stageTone, structureLabel } from '@/Utils/excel';
@@ -27,7 +28,9 @@ export default function Index({ stats = {}, recent = [] }) {
                 description="Upload, transform and import workbook data."
                 actions={
                     <>
-                        <Button href="/excel/history" variant="secondary" size="sm">History</Button>
+                        <Button href="/excel/history" variant="secondary" size="sm">
+                            History
+                        </Button>
                         <Can permission="upload data">
                             <Button href="/excel/upload" size="sm">
                                 <UploadCloud className="h-4 w-4" strokeWidth={1.75} />
@@ -45,7 +48,7 @@ export default function Index({ stats = {}, recent = [] }) {
                             <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted">{item.label}</p>
                             <item.icon className="h-4 w-4 text-brand-700/70 dark:text-brand-300/80" strokeWidth={1.75} />
                         </div>
-                        <p className="mt-2 text-2xl font-semibold tabular text-ink">{formatNumber(item.value)}</p>
+                        <p className="tabular mt-2 text-2xl font-semibold text-ink">{formatNumber(item.value)}</p>
                     </Card>
                 ))}
             </div>
@@ -54,7 +57,11 @@ export default function Index({ stats = {}, recent = [] }) {
                 <CardHeader
                     icon={FileSpreadsheet}
                     title="Recent workbooks"
-                    action={<Link href="/excel/history" className="text-[11.5px] font-medium text-brand-700 hover:underline dark:text-brand-300">View all</Link>}
+                    action={
+                        <Link href="/excel/history" className="text-[11.5px] font-medium text-brand-700 hover:underline dark:text-brand-300">
+                            View all
+                        </Link>
+                    }
                 />
                 {recent.length === 0 ? (
                     <EmptyState icon={FileSpreadsheet} title="No workbooks yet" description="Upload a workbook to begin." />
@@ -76,16 +83,28 @@ export default function Index({ stats = {}, recent = [] }) {
                                     <tr key={batch.uuid} className="hover:bg-canvas/40">
                                         <td className="px-5 py-3">
                                             <p className="max-w-[220px] truncate text-[13px] font-medium text-ink">{batch.file_name}</p>
-                                            <p className="text-[11px] text-muted">{batch.uploaded_by ?? 'Unknown'} · {new Date(batch.created_at).toLocaleDateString()}</p>
+                                            <p className="text-[11px] text-muted">
+                                                {batch.uploaded_by ?? 'Unknown'} · {new Date(batch.created_at).toLocaleDateString()}
+                                            </p>
                                         </td>
                                         <td className="px-4 py-3 text-[12px] text-muted">{batch.sheet_name ?? '—'}</td>
                                         <td className="px-4 py-3 text-[12px] text-muted">{structureLabel(batch.structure_type)}</td>
-                                        <td className="px-4 py-3 text-right text-[12.5px] tabular text-ink">{formatNumber(batch.imported_rows)}</td>
-                                        <td className="px-4 py-3"><Badge tone={stageTone(batch.stage)} size="sm">{stageLabel(batch.stage)}</Badge></td>
+                                        <td className="tabular px-4 py-3 text-right text-[12.5px] text-ink">{formatNumber(batch.imported_rows)}</td>
+                                        <td className="px-4 py-3">
+                                            <Badge tone={stageTone(batch.stage)} size="sm">
+                                                {stageLabel(batch.stage)}
+                                            </Badge>
+                                        </td>
                                         <td className="px-4 py-3 pr-5 text-right">
-                                            <Link href={`/excel/${batch.uuid}/preview`} className="inline-flex items-center gap-1 text-[12px] font-medium text-brand-700 hover:underline dark:text-brand-300">
-                                                Open <ArrowRight className="h-3.5 w-3.5" strokeWidth={2} />
-                                            </Link>
+                                            <div className="inline-flex items-center justify-end gap-2">
+                                                <Link
+                                                    href={`/excel/${batch.uuid}/preview`}
+                                                    className="inline-flex items-center gap-1 text-[12px] font-medium text-brand-700 hover:underline dark:text-brand-300"
+                                                >
+                                                    Open <ArrowRight className="h-3.5 w-3.5" strokeWidth={2} />
+                                                </Link>
+                                                <DeleteExcelBatchAction batch={batch} />
+                                            </div>
                                         </td>
                                     </tr>
                                 ))}

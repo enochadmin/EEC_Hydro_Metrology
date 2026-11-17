@@ -1,5 +1,6 @@
 import Button from '@/Components/Button';
 import { Card, CardBody, CardHeader } from '@/Components/Card';
+import ExcelUploadOverlay from '@/Components/excel/ExcelUploadOverlay';
 import PageHeader from '@/Components/PageHeader';
 import AppLayout from '@/Layouts/AppLayout';
 import { formatBytes } from '@/Utils/format';
@@ -27,6 +28,7 @@ export default function Upload({ limits = {} }) {
     return (
         <AppLayout breadcrumbs={[{ label: 'Excel', href: '/excel' }, { label: 'Upload' }]}>
             <Head title="Upload workbook" />
+            {processing && <ExcelUploadOverlay fileName={data.file?.name} progress={progress} />}
 
             <PageHeader
                 title="Upload a workbook"
@@ -35,11 +37,18 @@ export default function Upload({ limits = {} }) {
 
             <div className="mt-6 grid gap-4 lg:grid-cols-[1.4fr_1fr]">
                 <Card className="overflow-hidden">
-                    <CardHeader icon={FileSpreadsheet} title="Workbook file" description={`XLSX, XLS or CSV · up to ${limits.max_kb ? Math.round(limits.max_kb / 1024) : 30} MB`} />
+                    <CardHeader
+                        icon={FileSpreadsheet}
+                        title="Workbook file"
+                        description={`XLSX, XLS or CSV · up to ${limits.max_kb ? Math.round(limits.max_kb / 1024) : 30} MB`}
+                    />
                     <form onSubmit={submit}>
                         <CardBody className="space-y-4">
                             <div
-                                onDragOver={(event) => { event.preventDefault(); setDragging(true); }}
+                                onDragOver={(event) => {
+                                    event.preventDefault();
+                                    setDragging(true);
+                                }}
                                 onDragLeave={() => setDragging(false)}
                                 onDrop={(event) => {
                                     event.preventDefault();
@@ -73,19 +82,18 @@ export default function Upload({ limits = {} }) {
                                         <p className="truncate text-[12.5px] font-medium text-ink">{data.file.name}</p>
                                         <p className="text-[11px] text-muted">{formatBytes(data.file.size)}</p>
                                     </div>
-                                    <button type="button" onClick={() => setData('file', null)} className="text-muted hover:text-ink" aria-label="Remove file">
+                                    <button
+                                        type="button"
+                                        onClick={() => setData('file', null)}
+                                        className="text-muted hover:text-ink"
+                                        aria-label="Remove file"
+                                    >
                                         <X className="h-4 w-4" strokeWidth={2} />
                                     </button>
                                 </div>
                             )}
 
                             {errors.file && <p className="text-[12px] text-rose-600 dark:text-rose-400">{errors.file}</p>}
-
-                            {progress && (
-                                <div className="h-1.5 overflow-hidden rounded-full bg-canvas">
-                                    <div className="h-full rounded-full bg-brand-600 transition-all" style={{ width: `${progress.percentage}%` }} />
-                                </div>
-                            )}
                         </CardBody>
 
                         <div className="flex justify-end border-t border-line px-5 py-3.5">
@@ -118,10 +126,19 @@ export default function Upload({ limits = {} }) {
                     <Card>
                         <CardHeader icon={FileSpreadsheet} title="Data rules applied" />
                         <CardBody className="space-y-2 text-[11.5px] leading-relaxed text-muted">
-                            <p><span className="font-medium text-ink">Zero is data.</span> A 0 mm day stays a valid measurement.</p>
-                            <p><span className="font-medium text-ink">Hyphen and blank are missing.</span> They are reported, never converted to zero.</p>
-                            <p><span className="font-medium text-ink">Impossible dates are rejected.</span></p>
-                            <p><span className="font-medium text-ink">Invalid rows are kept in the report.</span> Nothing is silently deleted.</p>
+                            <p>
+                                <span className="font-medium text-ink">Zero is data.</span> A 0 mm day stays a valid measurement.
+                            </p>
+                            <p>
+                                <span className="font-medium text-ink">Hyphen and blank are missing.</span> They are reported, never converted to
+                                zero.
+                            </p>
+                            <p>
+                                <span className="font-medium text-ink">Impossible dates are rejected.</span>
+                            </p>
+                            <p>
+                                <span className="font-medium text-ink">Invalid rows are kept in the report.</span> Nothing is silently deleted.
+                            </p>
                         </CardBody>
                     </Card>
                 </div>
