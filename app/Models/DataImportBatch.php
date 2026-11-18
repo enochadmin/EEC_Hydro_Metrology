@@ -16,6 +16,7 @@ class DataImportBatch extends Model
         'mime_type',
         'checksum',
         'data_source_id',
+        'monitoring_station_id',
         'uploaded_by',
         'status',
         'total_rows',
@@ -72,6 +73,11 @@ class DataImportBatch extends Model
     public function dataSource(): BelongsTo
     {
         return $this->belongsTo(DataSource::class);
+    }
+
+    public function station(): BelongsTo
+    {
+        return $this->belongsTo(MonitoringStation::class, 'monitoring_station_id');
     }
 
     public function approver(): BelongsTo

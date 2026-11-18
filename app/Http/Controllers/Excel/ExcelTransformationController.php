@@ -100,6 +100,7 @@ class ExcelTransformationController extends Controller
             'batch' => [
                 'uuid' => $batch->uuid,
                 'file_name' => $batch->file_name,
+                'station' => $batch->station?->only(['id', 'code', 'name']),
                 'sheet_name' => $batch->sheet_name,
                 'structure_type' => $batch->structure_type,
                 'mapping' => $batch->mapping,

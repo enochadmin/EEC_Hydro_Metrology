@@ -8,6 +8,7 @@ use App\Http\Requests\Stations\StoreStationDocumentRequest;
 use App\Http\Requests\Stations\UpdateMonitoringStationRequest;
 use App\Models\ActivityLog;
 use App\Models\Basin;
+use App\Models\DataImportBatch;
 use App\Models\DataQualityIssue;
 use App\Models\DataSource;
 use App\Models\Document;
@@ -113,7 +114,7 @@ class MonitoringStationController extends Controller
             ->with('success', 'Station '.$station->code.' registered.');
     }
 
-    public function show(MonitoringStation $station): Response
+    public function show(Request $request, MonitoringStation $station): Response
     {
         Gate::authorize('view', $station);
 
@@ -185,6 +186,25 @@ class MonitoringStationController extends Controller
                 'created_at' => $log->created_at?->toIso8601String(),
             ]);
 
+        $importBatches = $station->importBatches()
+            ->with('uploader:id,name')
+            ->latest()
+            ->paginate(10, ['*'], 'import_page')
+            ->withQueryString()
+            ->through(fn (DataImportBatch $batch): array => [
+                'uuid' => $batch->uuid,
+                'file_name' => $batch->file_name,
+                'uploaded_by' => $batch->uploader?->name,
+                'created_at' => $batch->created_at?->toIso8601String(),
+                'imported_at' => $batch->imported_at?->toIso8601String(),
+                'status' => $batch->status,
+                'stage' => $batch->stage,
+                'total_rows' => (int) $batch->total_rows,
+                'imported_rows' => (int) $batch->imported_rows,
+                'duplicate_rows' => (int) $batch->duplicate_rows,
+                'rejected_rows' => (int) $batch->rejected_rows,
+            ]);
+
         return Inertia::render('Stations/Show', [
             'station' => [
                 'id' => $station->id,
@@ -221,6 +241,8 @@ class MonitoringStationController extends Controller
                 'updated_at' => $station->updated_at?->toIso8601String(),
             ],
             'observations' => $observations,
+            'importBatches' => $importBatches,
+            'initialTab' => $request->query('tab') === 'imports' ? 'imports' : 'overview',
             'documents' => $documents,
             'qualityIssues' => $qualityIssues,
             'activity' => $activity,
@@ -235,6 +257,10 @@ class MonitoringStationController extends Controller
                 'update' => Gate::allows('update', $station),
                 'delete' => Gate::allows('delete', $station),
                 'manageDocuments' => Gate::allows('manageDocuments', $station),
+                'uploadData' => ($request->user()?->can('upload data') ?? false)
+                    && ($request->user()?->can('view data') ?? false)
+                    && ($request->user()?->can('transform data') ?? false),
+                'exportData' => $request->user()?->can('export data') ?? false,
             ],
         ]);
     }

@@ -8,7 +8,7 @@ import AppLayout from '@/Layouts/AppLayout';
 import { severityTone, structureLabel } from '@/Utils/excel';
 import { formatNumber } from '@/Utils/format';
 import { Head, Link, router, useForm } from '@inertiajs/react';
-import { AlertTriangle, ClipboardCheck, Download, MapPin, RadioTower, ShieldCheck } from 'lucide-react';
+import { AlertTriangle, ClipboardCheck, Columns3, Download, MapPin, RadioTower, ShieldCheck } from 'lucide-react';
 import { useMemo, useState } from 'react';
 
 export default function Validation({ batch, report = {}, stations = [], existingStations = [], basins = [], subBasins = [] }) {
@@ -21,6 +21,18 @@ export default function Validation({ batch, report = {}, stations = [], existing
 
         stations.forEach((station) => {
             const saved = batch.station_map?.[station.name];
+
+            if (batch.station) {
+                map[station.name] = {
+                    mode: 'existing',
+                    station_id: String(batch.station.id),
+                    code: '',
+                    basin_id: '',
+                    sub_basin_id: '',
+                };
+
+                return;
+            }
 
             if (saved) {
                 map[station.name] = {
@@ -44,7 +56,7 @@ export default function Validation({ batch, report = {}, stations = [], existing
         });
 
         return map;
-    }, [stations, batch.station_map]);
+    }, [stations, batch.station_map, batch.station]);
 
     const { data, setData, post, processing, errors } = useForm({ station_map: initialMap });
     const [busy, setBusy] = useState(false);
@@ -56,14 +68,19 @@ export default function Validation({ batch, report = {}, stations = [], existing
         });
     };
 
-    const canImport = stations.length > 0 && stations.every((station) => {
+    const canImport = batch.station
+        ? stations.length > 0
+            && (summary.station_mismatches ?? 0) === 0
+            && (summary.station_parameter_errors ?? 0) === 0
+            && (summary.unknown_parameter_errors ?? 0) === 0
+        : stations.length > 0 && stations.every((station) => {
         const entry = data.station_map[station.name];
 
         if (!entry) return false;
         if (entry.mode === 'existing') return Boolean(entry.station_id);
 
         return Boolean(entry.code && entry.basin_id);
-    });
+        });
 
     const runValidation = () => {
         setBusy(true);
@@ -77,7 +94,9 @@ export default function Validation({ batch, report = {}, stations = [], existing
     const imported = batch.stage === 'imported';
 
     return (
-        <AppLayout breadcrumbs={[{ label: 'Excel', href: '/excel' }, { label: batch.file_name, href: `/excel/${batch.uuid}/preview?sheet=${encodeURIComponent(batch.sheet_name ?? '')}` }, { label: 'Validation' }]}>
+        <AppLayout breadcrumbs={batch.station
+            ? [{ label: 'Monitoring stations', href: '/stations' }, { label: batch.station.code, href: `/stations/${batch.station.id}` }, { label: batch.file_name }, { label: 'Validation' }]
+            : [{ label: 'Excel', href: '/excel' }, { label: batch.file_name, href: `/excel/${batch.uuid}/preview?sheet=${encodeURIComponent(batch.sheet_name ?? '')}` }, { label: 'Validation' }]}>
             <Head title="Validation" />
 
             <PageHeader
@@ -85,6 +104,16 @@ export default function Validation({ batch, report = {}, stations = [], existing
                 description={`${batch.sheet_name} · ${structureLabel(batch.structure_type)}. Missing values stay missing; invalid rows are excluded from import but remain in the report.`}
                 actions={
                     <>
+                        <Button variant="secondary" size="sm" href={`/excel/${batch.uuid}/transformation`}>
+                            <Columns3 className="h-3.5 w-3.5" strokeWidth={1.75} />
+                            Review transformed rows
+                        </Button>
+                        {can('export data') && (
+                            <Button variant="secondary" size="sm" onClick={() => window.location.assign(`/excel/${batch.uuid}/export/column-based`)}>
+                                <Download className="h-3.5 w-3.5" strokeWidth={1.75} />
+                                Download column-based
+                            </Button>
+                        )}
                         <Button variant="secondary" size="sm" onClick={() => window.location.assign(`/excel/${batch.uuid}/export/errors`)}>
                             <Download className="h-3.5 w-3.5" strokeWidth={1.75} />
                             Error report
@@ -177,13 +206,38 @@ export default function Validation({ batch, report = {}, stations = [], existing
                 </Card>
 
                 <Card className="overflow-hidden">
-                    <CardHeader icon={RadioTower} title="Station matching" description="Existing stations are matched by name. Create a station only when it is genuinely new; parameters are never created automatically." />
+                    <CardHeader
+                        icon={RadioTower}
+                        title={batch.station ? 'Selected station' : 'Station matching'}
+                        description={batch.station
+                            ? 'This workbook is bound to the selected station. Rows naming another station are blocked from import.'
+                            : 'Existing stations are matched by name. Create a station only when it is genuinely new; parameters are never created automatically.'}
+                    />
                     <CardBody className="space-y-3">
                         {errors.station_map && <p className="text-[12px] text-rose-600 dark:text-rose-400">{errors.station_map}</p>}
+                        {errors.parameter_map && <p className="text-[12px] text-rose-600 dark:text-rose-400">{errors.parameter_map}</p>}
 
                         {stations.length === 0 && <p className="text-[12px] text-muted">No station names were found in the transformed rows.</p>}
 
-                        {stations.map((station) => {
+                        {batch.station ? (
+                            <div className="space-y-2 rounded-lg border border-line bg-canvas/40 p-3">
+                                <p className="text-[12.5px] font-semibold text-ink">{batch.station.code} — {batch.station.name}</p>
+                                <p className="text-[10.5px] text-muted">Station identified in workbook:</p>
+                                {stations.map((sourceStation) => (
+                                    <div key={sourceStation.name} className="flex items-center justify-between gap-2 text-[11px]">
+                                        <span className="truncate text-ink">{sourceStation.name} · {formatNumber(sourceStation.rows)} rows</span>
+                                        <Badge tone={(summary.station_mismatches ?? 0) === 0 ? 'success' : 'danger'} size="sm">
+                                            {(summary.station_mismatches ?? 0) === 0 ? 'Matches selected station' : 'Check validation finding'}
+                                        </Badge>
+                                    </div>
+                                ))}
+                                {(summary.station_mismatches ?? 0) > 0 && (
+                                    <p className="pt-1 text-[11px] font-medium text-rose-700 dark:text-rose-300">
+                                        Resolve station mismatches by correcting the workbook and uploading it again.
+                                    </p>
+                                )}
+                            </div>
+                        ) : stations.map((station) => {
                             const entry = data.station_map[station.name] ?? { mode: 'existing', station_id: '' };
                             const filteredSubBasins = subBasins.filter((sub) => String(sub.basin_id) === String(entry.basin_id));
 

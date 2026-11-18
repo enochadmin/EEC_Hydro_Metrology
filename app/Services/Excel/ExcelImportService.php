@@ -46,19 +46,44 @@ class ExcelImportService
             throw new RuntimeException('The transformed dataset is missing.');
         }
 
+        $targetStation = $batch->station;
+
+        if ($batch->monitoring_station_id !== null && $targetStation === null) {
+            throw new RuntimeException('The station linked to this workbook is no longer available.');
+        }
+
+        if (($batch->validation_summary['station_mismatches'] ?? 0) > 0) {
+            throw ValidationException::withMessages([
+                'station_map' => 'This workbook contains rows for a different station. Correct the workbook and upload it again for the selected station.',
+            ]);
+        }
+
+        if (($batch->validation_summary['station_parameter_errors'] ?? 0) > 0) {
+            throw ValidationException::withMessages([
+                'parameter_map' => 'This workbook includes a parameter that is not active for the selected station. Update the station parameters and validate again.',
+            ]);
+        }
+
         $parameters = Parameter::query()->with('defaultUnit:id,code,symbol')->get()->keyBy('code');
+        $stationParameterIds = $targetStation?->stationParameters()
+            ->where('is_active', true)
+            ->pluck('parameter_id')
+            ->map(fn (int $id): int => $id)
+            ->all() ?? [];
         $fileStations = collect($this->validation->report($batch)['stations'] ?? [])->keyBy('name');
 
         $resolved = [];
         $stationsToCreate = [];
 
-        foreach ($stationMap as $name => $entry) {
-            $mode = $entry['mode'] ?? 'existing';
+        if ($targetStation === null) {
+            foreach ($stationMap as $name => $entry) {
+                $mode = $entry['mode'] ?? 'existing';
 
-            if ($mode === 'create') {
-                $stationsToCreate[$name] = $entry;
-            } elseif (! empty($entry['station_id'])) {
-                $resolved[$name] = (int) $entry['station_id'];
+                if ($mode === 'create') {
+                    $stationsToCreate[$name] = $entry;
+                } elseif (! empty($entry['station_id'])) {
+                    $resolved[$name] = (int) $entry['station_id'];
+                }
             }
         }
 
@@ -168,7 +193,15 @@ class ExcelImportService
                 $counts['valid_rows']++;
 
                 $stationName = trim((string) ($row['station_name'] ?? ''));
-                $stationId = $resolved[$stationName] ?? null;
+                $stationId = $targetStation?->id ?? ($resolved[$stationName] ?? null);
+
+                if ($targetStation !== null && ! collect([$targetStation->code, $targetStation->name, $targetStation->name_alt])
+                    ->filter(fn (?string $name): bool => filled($name))
+                    ->contains(fn (string $name): bool => mb_strtolower(trim($name)) === mb_strtolower($stationName))) {
+                    throw ValidationException::withMessages([
+                        'station_map' => 'A row identifies station "'.$stationName.'", but this workbook is linked to '.$targetStation->code.' — '.$targetStation->name.'.',
+                    ]);
+                }
 
                 if ($stationId === null) {
                     $stationId = MonitoringStation::query()
@@ -188,6 +221,12 @@ class ExcelImportService
                 if ($parameter === null) {
                     throw ValidationException::withMessages([
                         'parameter_map' => 'Element "'.($row['parameter'] ?? '').'" does not match a registered parameter. Map it before importing.',
+                    ]);
+                }
+
+                if ($targetStation !== null && ! in_array($parameter->id, $stationParameterIds, true)) {
+                    throw ValidationException::withMessages([
+                        'parameter_map' => 'Parameter "'.$parameter->name.'" is not configured as an active parameter for '.$targetStation->code.'.',
                     ]);
                 }
 

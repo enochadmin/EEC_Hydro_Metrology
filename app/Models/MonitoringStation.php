@@ -90,6 +90,11 @@ class MonitoringStation extends Model
         return $this->hasMany(HydrologicalObservation::class);
     }
 
+    public function importBatches(): HasMany
+    {
+        return $this->hasMany(DataImportBatch::class, 'monitoring_station_id');
+    }
+
     public function qualityIssues(): HasMany
     {
         return $this->hasMany(DataQualityIssue::class);

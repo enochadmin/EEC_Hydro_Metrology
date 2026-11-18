@@ -42,6 +42,7 @@ class ExcelValidationController extends Controller
                 'summary' => $batch->summary,
                 'validation_summary' => $batch->validation_summary,
                 'station_map' => $batch->station_map ?? [],
+                'station' => $batch->station?->only(['id', 'code', 'name', 'name_alt']),
                 'stage' => $batch->stage,
                 'status' => $batch->status,
                 'imported_rows' => $batch->imported_rows,

@@ -297,6 +297,14 @@ Route::middleware('auth')->group(function () {
             ->middleware('permission:create stations')
             ->name('store');
 
+        Route::get('{station}/data-imports/upload', [ExcelImportController::class, 'createForStation'])
+            ->middleware(['permission:view stations', 'permission:view data', 'permission:upload data', 'permission:transform data'])
+            ->name('imports.create');
+
+        Route::post('{station}/data-imports/upload', [ExcelImportController::class, 'storeForStation'])
+            ->middleware(['permission:view stations', 'permission:view data', 'permission:upload data', 'permission:transform data'])
+            ->name('imports.store');
+
         Route::get('{station}/edit', [MonitoringStationController::class, 'edit'])
             ->middleware('permission:edit stations')
             ->name('edit');

@@ -12,7 +12,7 @@ import AppLayout from '@/Layouts/AppLayout';
 import { activityLabel, dataStatusLabel, dataStatusTone } from '@/Utils/basins';
 import { formatCoordinate, formatDate, formatDateTime, formatElevation, formatNumber } from '@/Utils/format';
 import { Head, Link, router } from '@inertiajs/react';
-import { ArrowLeft, CalendarClock, Database, FileText, MapPin, Pencil, RadioTower, Trash2, Waves } from 'lucide-react';
+import { ArrowLeft, CalendarClock, Database, FileSpreadsheet, FileText, MapPin, Pencil, RadioTower, Trash2, Waves } from 'lucide-react';
 import { useState } from 'react';
 
 function DetailItem({ label, children }) {
@@ -34,8 +34,8 @@ function SummaryTile({ label, value, hint }) {
     );
 }
 
-export default function Show({ station, observations, documents = [], qualityIssues = [], activity = [], availability = {}, abilities = {} }) {
-    const [tab, setTab] = useState('overview');
+export default function Show({ station, observations, importBatches, initialTab = 'overview', documents = [], qualityIssues = [], activity = [], availability = {}, abilities = {} }) {
+    const [tab, setTab] = useState(initialTab);
     const [confirmDelete, setConfirmDelete] = useState(false);
     const [deleting, setDeleting] = useState(false);
 
@@ -55,6 +55,7 @@ export default function Show({ station, observations, documents = [], qualityIss
         { key: 'parameters', label: 'Parameters', count: station.parameters.length },
         { key: 'observations', label: 'Historical observations', count: availability.records },
         { key: 'availability', label: 'Data availability' },
+        { key: 'imports', label: 'Data imports', count: importBatches?.total ?? 0 },
         { key: 'documents', label: 'Documents', count: documents.length },
         { key: 'activity', label: 'Activity history', count: activity.length },
     ];
@@ -76,6 +77,7 @@ export default function Show({ station, observations, documents = [], qualityIss
                                 <Button variant="secondary" size="sm" href={'/gis?station=' + station.id}><MapPin className="h-3.5 w-3.5" />Open on map</Button>
                             </Can>
                         )}
+                        {abilities.uploadData && <Button variant="primary" size="sm" href={`/stations/${station.id}/data-imports/upload`}><FileSpreadsheet className="h-3.5 w-3.5" />Import data</Button>}
                         {abilities.update && <Button variant="secondary" size="sm" href={'/stations/' + station.id + '/edit'}><Pencil className="h-3.5 w-3.5" />Edit</Button>}
                         {abilities.delete && <Button variant="danger-ghost" size="sm" onClick={() => setConfirmDelete(true)}><Trash2 className="h-3.5 w-3.5" />Archive</Button>}
                     </>
@@ -244,6 +246,34 @@ export default function Show({ station, observations, documents = [], qualityIss
 
                     {tab === 'documents' && (
                         <DocumentsPanel documents={documents} action={'/stations/' + station.id + '/documents'} canManage={abilities.manageDocuments} />
+                    )}
+
+                    {tab === 'imports' && (
+                        <section>
+                            {importBatches?.data?.length ? (
+                                <>
+                                    <div className="overflow-x-auto">
+                                        <table className="min-w-full text-left text-sm">
+                                            <thead className="border-b border-line bg-canvas/50"><tr><th className="px-3 py-2 text-[10px] font-semibold uppercase text-muted">Workbook</th><th className="px-3 py-2 text-[10px] font-semibold uppercase text-muted">Uploaded</th><th className="px-3 py-2 text-[10px] font-semibold uppercase text-muted">Status</th><th className="px-3 py-2 text-[10px] font-semibold uppercase text-muted">Rows</th><th className="px-3 py-2" /></tr></thead>
+                                            <tbody className="divide-y divide-line">
+                                                {importBatches.data.map((batch) => (
+                                                    <tr key={batch.uuid}>
+                                                        <td className="px-3 py-2.5"><span className="block text-[12px] font-medium text-ink">{batch.file_name}</span><span className="text-[10px] text-muted">{batch.uploaded_by || 'Unknown user'}</span></td>
+                                                        <td className="px-3 py-2.5 text-[11px] text-muted">{formatDateTime(batch.created_at)}</td>
+                                                        <td className="px-3 py-2.5"><Badge tone={batch.status === 'completed_with_errors' ? 'warning' : batch.stage === 'imported' ? 'success' : batch.status === 'failed' ? 'danger' : 'neutral'} size="sm">{batch.status === 'completed_with_errors' ? 'Imported with errors' : batch.stage.replaceAll('_', ' ')}</Badge></td>
+                                                        <td className="px-3 py-2.5 tabular text-[11px] text-muted">{formatNumber(batch.imported_rows)} imported · {formatNumber(batch.duplicate_rows)} duplicates · {formatNumber(batch.rejected_rows)} rejected</td>
+                                                        <td className="px-3 py-2.5 text-right"><div className="flex justify-end gap-3">{abilities.exportData && <button type="button" onClick={() => window.location.assign(`/excel/${batch.uuid}/export/column-based`)} className="text-[11px] font-medium text-muted hover:text-ink">Column-based</button>}{batch.stage !== 'imported' && <Link href={['validated', 'compared'].includes(batch.stage) ? `/excel/${batch.uuid}/validation` : `/excel/${batch.uuid}/preview`} className="text-[11px] font-medium text-brand-700 hover:text-brand-900 dark:text-brand-300">Continue import</Link>}</div></td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                    <Pagination meta={importBatches} />
+                                </>
+                            ) : (
+                                <EmptyState icon={FileSpreadsheet} title="No station data imports yet" description="Raw workbooks uploaded for this station will appear here with their transformation and import results." />
+                            )}
+                        </section>
                     )}
 
                     {tab === 'activity' && (

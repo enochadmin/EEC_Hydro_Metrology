@@ -8,7 +8,7 @@ import { Head, useForm } from '@inertiajs/react';
 import { FileSpreadsheet, Info, UploadCloud, X } from 'lucide-react';
 import { useRef, useState } from 'react';
 
-export default function Upload({ limits = {} }) {
+export default function Upload({ limits = {}, station = null }) {
     const inputRef = useRef(null);
     const [dragging, setDragging] = useState(false);
 
@@ -22,17 +22,22 @@ export default function Upload({ limits = {} }) {
 
     const submit = (event) => {
         event.preventDefault();
-        post('/excel/upload', { forceFormData: true, preserveScroll: true });
+        post(station?.upload_url ?? '/excel/upload', { forceFormData: true, preserveScroll: true });
     };
 
     return (
-        <AppLayout breadcrumbs={[{ label: 'Excel', href: '/excel' }, { label: 'Upload' }]}>
-            <Head title="Upload workbook" />
+        <AppLayout breadcrumbs={station
+            ? [{ label: 'Monitoring stations', href: '/stations' }, { label: station.code, href: `/stations/${station.id}` }, { label: 'Import data' }]
+            : [{ label: 'Excel', href: '/excel' }, { label: 'Upload' }]}>
+            <Head title={station ? `Import data · ${station.name}` : 'Upload workbook'} />
             {processing && <ExcelUploadOverlay fileName={data.file?.name} progress={progress} />}
 
             <PageHeader
-                title="Upload a workbook"
-                description="The original file is stored unchanged; detection uses cell content, not sheet names."
+                eyebrow={station ? `${station.code} · ${station.name}` : undefined}
+                title={station ? 'Import station data' : 'Upload a workbook'}
+                description={station
+                    ? 'Upload this station’s raw workbook. The source file will be preserved and its observations will be checked against the selected station.'
+                    : 'The original file is stored unchanged; detection uses cell content, not sheet names.'}
             />
 
             <div className="mt-6 grid gap-4 lg:grid-cols-[1.4fr_1fr]">
@@ -98,7 +103,7 @@ export default function Upload({ limits = {} }) {
 
                         <div className="flex justify-end border-t border-line px-5 py-3.5">
                             <Button type="submit" disabled={processing || !data.file}>
-                                {processing ? 'Uploading…' : 'Upload and inspect'}
+                                {processing ? 'Uploading…' : station ? 'Upload station workbook' : 'Upload and inspect'}
                             </Button>
                         </div>
                     </form>

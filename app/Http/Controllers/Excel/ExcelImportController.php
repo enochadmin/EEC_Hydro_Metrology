@@ -6,11 +6,14 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Excel\ImportExcelRequest;
 use App\Http\Requests\Excel\StoreExcelUploadRequest;
 use App\Models\DataImportBatch;
+use App\Models\MonitoringStation;
 use App\Services\Excel\ExcelFileService;
 use App\Services\Excel\ExcelImportBatchDeletionService;
 use App\Services\Excel\ExcelImportService;
+use App\Services\Excel\ExcelStationImportPreparationService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -49,8 +52,44 @@ class ExcelImportController extends Controller
         ]);
     }
 
+    public function createForStation(MonitoringStation $station): Response
+    {
+        Gate::authorize('view', $station);
+
+        return Inertia::render('Excel/Upload', [
+            'limits' => [
+                'max_kb' => (int) config('excel.limits.max_upload_kb'),
+                'formats' => ['xlsx', 'xls', 'csv'],
+            ],
+            'station' => [
+                'id' => $station->id,
+                'code' => $station->code,
+                'name' => $station->name,
+                'upload_url' => route('stations.imports.store', $station),
+            ],
+        ]);
+    }
+
     public function store(StoreExcelUploadRequest $request): RedirectResponse
     {
+        return $this->storeWorkbook($request);
+    }
+
+    public function storeForStation(
+        StoreExcelUploadRequest $request,
+        MonitoringStation $station,
+        ExcelStationImportPreparationService $preparation,
+    ): RedirectResponse {
+        Gate::authorize('view', $station);
+
+        return $this->storeWorkbook($request, $station, $preparation);
+    }
+
+    private function storeWorkbook(
+        StoreExcelUploadRequest $request,
+        ?MonitoringStation $station = null,
+        ?ExcelStationImportPreparationService $preparation = null,
+    ): RedirectResponse {
         $file = $request->file('file');
         $uuid = (string) Str::uuid();
         $extension = strtolower($file->getClientOriginalExtension() ?: 'xlsx');
@@ -65,6 +104,8 @@ class ExcelImportController extends Controller
             'file_size' => $file->getSize() ?: 0,
             'mime_type' => $file->getClientMimeType(),
             'checksum' => hash_file('sha256', $file->getRealPath()),
+            'monitoring_station_id' => $station?->id,
+            'data_source_id' => $station?->data_source_id,
             'uploaded_by' => $request->user()->id,
             'status' => 'pending',
             'stage' => 'uploaded',
@@ -79,6 +120,26 @@ class ExcelImportController extends Controller
             return back()->with('error', 'The workbook could not be read: '.$exception->getMessage());
         }
 
+        if ($station !== null && $preparation !== null) {
+            try {
+                $prepared = $preparation->prepare($batch);
+            } catch (\Throwable $exception) {
+                return redirect()
+                    ->route('excel.preview', ['batch' => $batch->uuid, 'sheet' => $sheets[0] ?? null])
+                    ->with('error', 'The workbook was saved, but automatic transformation could not complete. Review the worksheet and mapping before continuing.');
+            }
+
+            if ($prepared) {
+                return redirect()
+                    ->route('excel.validation', $batch)
+                    ->with('success', 'Workbook uploaded, transformed and validated for '.$station->code.'. Review the findings before approving the import.');
+            }
+
+            return redirect()
+                ->route('excel.preview', ['batch' => $batch->uuid, 'sheet' => $sheets[0] ?? null])
+                ->with('warning', 'The workbook was saved, but its structure needs manual mapping before it can be imported.');
+        }
+
         return redirect()
             ->route('excel.preview', ['batch' => $batch->uuid, 'sheet' => $sheets[0] ?? null])
             ->with('success', 'Workbook uploaded. '.count($sheets).' worksheet(s) detected.');
@@ -90,8 +151,11 @@ class ExcelImportController extends Controller
 
         $counts = $importer->import($batch, $stationMap, $request->user());
 
-        return redirect()
-            ->route('excel.validation', $batch)
+        $destination = $batch->monitoring_station_id
+            ? redirect()->route('stations.show', ['station' => $batch->monitoring_station_id, 'tab' => 'imports'])
+            : redirect()->route('excel.validation', $batch);
+
+        return $destination
             ->with('success', sprintf(
                 '%d observations imported; %d duplicates skipped; %d non-valid rows excluded.',
                 $counts['imported'],

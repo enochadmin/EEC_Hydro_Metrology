@@ -34,11 +34,13 @@ export default function Transformation({ batch, transformed = [], original = nul
 
     return (
         <AppLayout
-            breadcrumbs={[
-                { label: 'Excel', href: '/excel' },
-                { label: batch.file_name, href: `/excel/${batch.uuid}/preview?sheet=${encodeURIComponent(batch.sheet_name ?? '')}` },
-                { label: 'Transformation' },
-            ]}
+            breadcrumbs={batch.station
+                ? [{ label: 'Monitoring stations', href: '/stations' }, { label: batch.station.code, href: `/stations/${batch.station.id}` }, { label: batch.file_name }, { label: 'Transformation' }]
+                : [
+                    { label: 'Excel', href: '/excel' },
+                    { label: batch.file_name, href: `/excel/${batch.uuid}/preview?sheet=${encodeURIComponent(batch.sheet_name ?? '')}` },
+                    { label: 'Transformation' },
+                ]}
         >
             <Head title="Transformation preview" />
             {busy === 'compare' && (

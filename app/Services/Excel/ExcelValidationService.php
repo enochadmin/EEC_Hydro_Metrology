@@ -53,6 +53,20 @@ class ExcelValidationService
         $seen = [];
         $stations = [];
         $dates = [];
+        $stationMismatches = 0;
+        $stationParameterErrors = 0;
+        $unknownParameterErrors = 0;
+        $targetStation = $batch->station;
+        $stationParameterCodes = $targetStation?->stationParameters()
+            ->where('is_active', true)
+            ->with('parameter:id,code')
+            ->get()
+            ->pluck('parameter.code')
+            ->filter()
+            ->values() ?? collect();
+        $targetStationNames = collect([$targetStation?->code, $targetStation?->name, $targetStation?->name_alt])
+            ->filter(fn (?string $name): bool => filled($name))
+            ->map(fn (string $name): string => mb_strtolower(trim($name)));
 
         $handle = fopen($path, 'rb');
 
@@ -103,6 +117,20 @@ class ExcelValidationService
                     'rows' => 0,
                 ];
                 $stations[$station]['rows']++;
+
+                if ($targetStation !== null) {
+                    if (! $targetStationNames->contains(mb_strtolower($station))) {
+                        $stationMismatches++;
+                        $addIssue(
+                            $row,
+                            'STATION_MISMATCH',
+                            'This row identifies station "'.$station.'", but this workbook was uploaded for '.$targetStation->code.' — '.$targetStation->name.'.',
+                            'error',
+                            'station_name',
+                            $station,
+                        );
+                    }
+                }
             }
 
             if (isset($row['longitude']) && $row['longitude'] !== null) {
@@ -118,7 +146,18 @@ class ExcelValidationService
             }
 
             if ($parameterCode === '' || ! $parameters->has($parameterCode)) {
+                $unknownParameterErrors++;
                 $addIssue($row, 'UNKNOWN_PARAMETER', 'The element "'.($row['parameter'] ?? '').'" does not match a registered parameter.', 'error', 'parameter', $row['parameter'] ?? null);
+            } elseif ($targetStation !== null && ! $stationParameterCodes->contains($parameterCode)) {
+                $stationParameterErrors++;
+                $addIssue(
+                    $row,
+                    'PARAMETER_NOT_ASSIGNED',
+                    'The parameter "'.($row['parameter'] ?? $parameterCode).'" is not configured as an active parameter for '.$targetStation->code.'.',
+                    'error',
+                    'parameter',
+                    $row['parameter'] ?? $parameterCode,
+                );
             }
 
             if ($date === null) {
@@ -180,6 +219,9 @@ class ExcelValidationService
         }
 
         $summary['stations'] = count($stations);
+        $summary['station_mismatches'] = $stationMismatches;
+        $summary['station_parameter_errors'] = $stationParameterErrors;
+        $summary['unknown_parameter_errors'] = $unknownParameterErrors;
         $summary['dates'] = count($dates);
         $summary['issues_total'] = count($issues);
 
