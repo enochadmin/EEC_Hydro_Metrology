@@ -9,7 +9,7 @@ import AppLayout from '@/Layouts/AppLayout';
 import { useAuthorization } from '@/Hooks/useAuthorization';
 import { formatDate, formatNumber } from '@/Utils/format';
 import { Head, Link, router } from '@inertiajs/react';
-import { ArrowUpDown, MapPin, Plus, RadioTower, Search, X } from 'lucide-react';
+import { ArrowUpDown, MapPin, Plus, RadioTower, Search, Upload, X } from 'lucide-react';
 import { useState } from 'react';
 
 const filterClasses = 'h-9 rounded-lg border-line bg-surface py-1.5 pl-3 pr-8 text-xs text-ink shadow-sm focus:border-brand-500 focus:ring-brand-500';
@@ -25,7 +25,7 @@ function SummaryCard({ label, value, hint }) {
     );
 }
 
-export default function Index({ stations, filters, categories = [], basins = [], subBasins = [], summary = {} }) {
+export default function Index({ stations, filters, categories = [], classes = [], basins = [], subBasins = [], summary = {} }) {
     const { can } = useAuthorization();
     const [search, setSearch] = useState(filters.search ?? '');
 
@@ -38,7 +38,7 @@ export default function Index({ stations, filters, categories = [], basins = [],
         apply({ sort: column, direction });
     };
 
-    const hasFilters = Boolean(filters.search || filters.station_type || filters.basin_id || filters.sub_basin_id || filters.state || filters.availability);
+    const hasFilters = Boolean(filters.search || filters.station_type || filters.station_class || filters.basin_id || filters.sub_basin_id || filters.state || filters.availability);
     const clearFilters = () => {
         setSearch('');
         router.get('/stations');
@@ -52,7 +52,10 @@ export default function Index({ stations, filters, categories = [], basins = [],
                 description="Station registry, assigned parameters, operating status, and observed data coverage."
                 actions={
                     <Can permission="create stations">
-                        <Button href="/stations/create" size="sm"><Plus className="h-4 w-4" />Register station</Button>
+                        <div className="flex items-center gap-2">
+                            <Button href="/stations/import" size="sm" variant="secondary"><Upload className="h-4 w-4" />Import stations</Button>
+                            <Button href="/stations/create" size="sm"><Plus className="h-4 w-4" />Register station</Button>
+                        </div>
                     </Can>
                 }
             />
@@ -76,6 +79,11 @@ export default function Index({ stations, filters, categories = [], basins = [],
                         <select id="station-type-filter" value={filters.station_type ?? ''} onChange={(event) => apply({ station_type: event.target.value })} className={filterClasses}>
                             <option value="">All station types</option>
                             {categories.map((category) => <option key={category.code} value={category.code}>{category.label}</option>)}
+                        </select>
+                        <label className="sr-only" htmlFor="station-class-filter">Network class</label>
+                        <select id="station-class-filter" value={filters.station_class ?? ''} onChange={(event) => apply({ station_class: event.target.value })} className={filterClasses}>
+                            <option value="">All classes</option>
+                            {classes.map((option) => <option key={option.code} value={option.code}>{option.label}</option>)}
                         </select>
                         <label className="sr-only" htmlFor="station-basin-filter">Basin</label>
                         <select id="station-basin-filter" value={filters.basin_id ?? ''} onChange={(event) => apply({ basin_id: event.target.value, sub_basin_id: '' })} className={filterClasses}>
@@ -135,7 +143,12 @@ export default function Index({ stations, filters, categories = [], basins = [],
                                                 </span>
                                             </Link>
                                         </td>
-                                        <td className="px-4 py-3"><Badge tone="brand" size="sm">{station.category?.label ?? station.station_type}</Badge></td>
+                                        <td className="px-4 py-3">
+                                            <div className="flex flex-wrap items-center gap-1">
+                                                <Badge tone="brand" size="sm">{station.category?.label ?? station.station_type}</Badge>
+                                                {station.class_label && <Badge tone="neutral" size="sm">{station.class_label}</Badge>}
+                                            </div>
+                                        </td>
                                         <td className="px-4 py-3 text-[12px] text-ink">
                                             <span className="block">{station.basin?.code ?? '—'} · {station.basin?.name ?? 'No basin'}</span>
                                             <span className="mt-0.5 block text-[11px] text-muted">{station.sub_basin?.name ?? 'No sub-basin'}</span>

@@ -104,7 +104,7 @@ export default function MarkerClusterLayer({ features = [], onSelect }) {
                             <div><span style="color:#64748b;">Coordinates:</span> <strong>${coordsStr}</strong></div>
                         </div>
                         <div style="margin-top: 8px; text-align: right; border-top: 1px solid #f1f5f9; padding-top: 5px;">
-                            <a href="/reports/stations/${properties.id}" style="color: #0284c7; font-weight: 600; text-decoration: none; font-size: 11px;">Open Station Report →</a>
+                            <a href="/stations/${properties.id}" style="color: #0284c7; font-weight: 600; text-decoration: none; font-size: 11px;">Open station →</a>
                         </div>
                     </div>
                 `;
@@ -112,7 +112,7 @@ export default function MarkerClusterLayer({ features = [], onSelect }) {
             } else {
                 marker = L.marker([lat, lng], {
                     icon: stationIcon({ color: properties.color, icon: properties.icon }),
-                    title: `${properties.name} (${properties.code})`,
+                    title: `${properties.name} (${properties.code})${properties.class_label ? ' · ' + properties.class_label : ''}`,
                     keyboard: true,
                 });
 
@@ -130,13 +130,14 @@ export default function MarkerClusterLayer({ features = [], onSelect }) {
                         <div style="border-top: 1px solid #e2e8f0; padding-top: 6px; font-size: 11px; display: flex; flex-direction: column; gap: 3px;">
                             <div><span style="color:#64748b;">Code:</span> <strong>${properties.code}</strong></div>
                             <div><span style="color:#64748b;">Type:</span> <strong>${properties.type_label ?? properties.station_type}</strong></div>
+                            ${properties.class_label ? `<div><span style="color:#64748b;">Class:</span> <strong>${properties.class_label}</strong></div>` : ''}
                             <div><span style="color:#64748b;">Basin:</span> <strong>${basinName}</strong></div>
                             <div><span style="color:#64748b;">Coordinates:</span> <strong>${coordsStr}</strong></div>
                             <div><span style="color:#64748b;">Elevation:</span> <strong>${elevStr}</strong></div>
                             ${properties.operator ? `<div><span style="color:#64748b;">Operator:</span> <strong>${properties.operator}</strong></div>` : ''}
                         </div>
                         <div style="margin-top: 8px; text-align: right; border-top: 1px solid #f1f5f9; padding-top: 5px;">
-                            <a href="/reports/stations/${properties.id}" style="color: #0284c7; font-weight: 600; text-decoration: none; font-size: 11px;">Open Station Report →</a>
+                            <a href="/stations/${properties.id}" style="color: #0284c7; font-weight: 600; text-decoration: none; font-size: 11px;">Open station →</a>
                         </div>
                     </div>
                 `;

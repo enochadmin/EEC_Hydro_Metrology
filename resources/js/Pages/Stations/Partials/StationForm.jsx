@@ -9,6 +9,7 @@ export default function StationForm({
     method = 'post',
     station = {},
     categories = [],
+    classes = [],
     basins = [],
     subBasins = [],
     parameters = [],
@@ -21,6 +22,7 @@ export default function StationForm({
         name: station.name ?? '',
         name_alt: station.name_alt ?? '',
         station_type: station.station_type ?? categories[0]?.code ?? '',
+        station_class: station.station_class ?? '',
         basin_id: station.basin_id ? String(station.basin_id) : '',
         sub_basin_id: station.sub_basin_id ? String(station.sub_basin_id) : '',
         latitude: station.latitude ?? '',
@@ -66,6 +68,12 @@ export default function StationForm({
                     <Field label="Alternative name" htmlFor="name_alt" error={errors.name_alt}>
                         <input id="name_alt" maxLength={150} value={data.name_alt} onChange={(event) => setData('name_alt', event.target.value)} placeholder="Local or historical name" className={inputClasses} />
                     </Field>
+                    <Field label="Network class" htmlFor="station_class" error={errors.station_class} hint="Observing network the station belongs to. Separate from what it measures.">
+                        <select id="station_class" value={data.station_class} onChange={(event) => setData('station_class', event.target.value)} className={selectClasses}>
+                            <option value="">Not classified</option>
+                            {classes.map((option) => <option key={option.code} value={option.code}>{option.label}</option>)}
+                        </select>
+                    </Field>
                     <Field label="Station type" htmlFor="station_type" error={errors.station_type} required>
                         <select id="station_type" required value={data.station_type} onChange={(event) => setData('station_type', event.target.value)} className={selectClasses}>
                             {categories.map((category) => <option key={category.code} value={category.code}>{category.label}</option>)}
@@ -77,9 +85,9 @@ export default function StationForm({
             <Card>
                 <CardHeader icon={Compass} title="Location and basin" description="Coordinates use WGS84 decimal degrees. Leave both empty when they have not been confirmed." />
                 <CardBody className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                    <Field label="Basin" htmlFor="basin_id" error={errors.basin_id} required>
-                        <select id="basin_id" required value={data.basin_id} onChange={(event) => setData({ ...data, basin_id: event.target.value, sub_basin_id: '' })} className={selectClasses}>
-                            <option value="">Choose a basin</option>
+                    <Field label="Basin" htmlFor="basin_id" error={errors.basin_id} hint="Optional until basin boundaries are imported.">
+                        <select id="basin_id" value={data.basin_id} onChange={(event) => setData({ ...data, basin_id: event.target.value, sub_basin_id: '' })} className={selectClasses}>
+                            <option value="">No basin assigned</option>
                             {basins.map((basin) => <option key={basin.id} value={basin.id}>{basin.code} — {basin.name}</option>)}
                         </select>
                     </Field>

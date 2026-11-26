@@ -21,6 +21,8 @@ use App\Http\Controllers\Settings\PasswordController;
 use App\Http\Controllers\Settings\ProfileController;
 use App\Http\Controllers\Settings\SystemSettingsController;
 use App\Http\Controllers\Stations\MonitoringStationController;
+use App\Http\Controllers\Stations\StationDataComparisonController;
+use App\Http\Controllers\Stations\StationImportController;
 use App\Http\Controllers\Users\UserController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -297,6 +299,36 @@ Route::middleware('auth')->group(function () {
             ->middleware('permission:create stations')
             ->name('store');
 
+        /*
+        |------------------------------------------------------------------
+        | Station registry import
+        |------------------------------------------------------------------
+        | A station list describes the network, not readings. It is staged
+        | and reviewed before any row reaches `monitoring_stations`.
+        */
+
+        Route::prefix('import')->name('import.')->group(function () {
+            Route::get('/', [StationImportController::class, 'create'])
+                ->middleware('permission:create stations')
+                ->name('create');
+
+            Route::post('/', [StationImportController::class, 'store'])
+                ->middleware('permission:create stations')
+                ->name('store');
+
+            Route::get('{batch:uuid}', [StationImportController::class, 'show'])
+                ->middleware('permission:create stations')
+                ->name('show');
+
+            Route::post('{batch:uuid}/preview', [StationImportController::class, 'preview'])
+                ->middleware('permission:create stations')
+                ->name('preview');
+
+            Route::post('{batch:uuid}/commit', [StationImportController::class, 'commit'])
+                ->middleware('permission:create stations')
+                ->name('commit');
+        });
+
         Route::get('{station}/data-imports/upload', [ExcelImportController::class, 'createForStation'])
             ->middleware(['permission:view stations', 'permission:view data', 'permission:upload data', 'permission:transform data'])
             ->name('imports.create');
@@ -328,6 +360,10 @@ Route::middleware('auth')->group(function () {
         Route::delete('{station}/documents/{document}', [MonitoringStationController::class, 'destroyDocument'])
             ->middleware('permission:edit stations')
             ->name('documents.destroy');
+
+        Route::get('{station}/compare', [StationDataComparisonController::class, 'show'])
+            ->middleware('permission:view stations')
+            ->name('compare');
 
         Route::get('{station}', [MonitoringStationController::class, 'show'])
             ->middleware('permission:view stations')

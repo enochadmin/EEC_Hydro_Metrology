@@ -109,6 +109,29 @@ export default function LayerControl({
                         </div>
                     </div>
 
+                    <div className="rounded-md border border-sky-200/60 bg-sky-50/50 p-1.5 dark:border-sky-900/40 dark:bg-sky-950/20">
+                        <label className="block text-[10px] font-medium text-muted uppercase">Single day (exact value)</label>
+                        <div className="mt-0.5 flex items-center gap-1">
+                            <input
+                                type="date"
+                                value={rainfallFilter?.date ?? ''}
+                                onChange={(e) => onRainfallFilterChange?.({ date: e.target.value })}
+                                className="block w-full rounded-md border-line bg-surface py-1 px-1.5 text-[11px] text-ink focus:border-sky-500 focus:ring-sky-500"
+                            />
+                            {rainfallFilter?.date ? (
+                                <button
+                                    type="button"
+                                    onClick={() => onRainfallFilterChange?.({ date: '' })}
+                                    className="rounded border border-line bg-surface px-1.5 py-1 text-[9.5px] font-medium text-muted hover:text-ink"
+                                >
+                                    Clear
+                                </button>
+                            ) : null}
+                        </div>
+                        <p className="mt-1 text-[9.5px] leading-relaxed text-muted">
+                            A day reads that day alone: the map colours stations by the day&apos;s value and the station panel shows the exact figure.
+                        </p>
+                    </div>
                     {/* Quick Presets */}
                     <div className="flex flex-wrap gap-1 pt-0.5">
                         <button

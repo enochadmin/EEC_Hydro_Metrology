@@ -12,7 +12,7 @@ import AppLayout from '@/Layouts/AppLayout';
 import { activityLabel, dataStatusLabel, dataStatusTone } from '@/Utils/basins';
 import { formatCoordinate, formatDate, formatDateTime, formatElevation, formatNumber } from '@/Utils/format';
 import { Head, Link, router } from '@inertiajs/react';
-import { ArrowLeft, CalendarClock, Database, FileSpreadsheet, FileText, MapPin, Pencil, RadioTower, Trash2, Waves } from 'lucide-react';
+import { ArrowLeft, CalendarClock, Database, FileSpreadsheet, FileText, GitCompare, MapPin, Pencil, RadioTower, Trash2, Waves } from 'lucide-react';
 import { useState } from 'react';
 
 function DetailItem({ label, children }) {
@@ -71,12 +71,13 @@ export default function Show({ station, observations, importBatches, initialTab 
                 title={station.name}
                 description={station.name_alt ? station.name_alt : 'Monitoring station record and observed data.'}
                 actions={
-                    <>
+                        <>
                         {station.latitude !== null && station.longitude !== null && (
                             <Can permission="view map">
                                 <Button variant="secondary" size="sm" href={'/gis?station=' + station.id}><MapPin className="h-3.5 w-3.5" />Open on map</Button>
                             </Can>
                         )}
+                        {abilities.compare && (importBatches?.total ?? 0) > 1 && <Button variant="secondary" size="sm" href={`/stations/${station.id}/compare`}><GitCompare className="h-3.5 w-3.5" />Compare uploads</Button>}
                         {abilities.uploadData && <Button variant="primary" size="sm" href={`/stations/${station.id}/data-imports/upload`}><FileSpreadsheet className="h-3.5 w-3.5" />Import data</Button>}
                         {abilities.update && <Button variant="secondary" size="sm" href={'/stations/' + station.id + '/edit'}><Pencil className="h-3.5 w-3.5" />Edit</Button>}
                         {abilities.delete && <Button variant="danger-ghost" size="sm" onClick={() => setConfirmDelete(true)}><Trash2 className="h-3.5 w-3.5" />Archive</Button>}
@@ -86,6 +87,7 @@ export default function Show({ station, observations, importBatches, initialTab 
 
             <div className="mt-4 flex flex-wrap items-center gap-1.5">
                 <Badge tone="brand" size="sm">{station.category?.label ?? station.station_type}</Badge>
+                {station.station_class && <Badge tone="neutral" size="sm">{station.class_label ?? station.station_class}</Badge>}
                 <Badge tone={station.is_active ? 'success' : 'danger'} size="sm">{station.is_active ? 'Operational' : 'Inactive'}</Badge>
                 <Badge tone={dataStatusTone(station.data_status)} size="sm">{dataStatusLabel(station.data_status)} data</Badge>
                 {station.basin && <Badge tone="neutral" size="sm">{station.basin.code} · {station.basin.name}</Badge>}
@@ -110,6 +112,7 @@ export default function Show({ station, observations, importBatches, initialTab 
                                     <DetailItem label="Station name">{station.name}</DetailItem>
                                     <DetailItem label="Alternative name">{station.name_alt || 'Not recorded'}</DetailItem>
                                     <DetailItem label="Station type">{station.category?.label ?? station.station_type}</DetailItem>
+                                    <DetailItem label="Network class">{station.class_label || "Unclassified"}</DetailItem>
                                     <DetailItem label="Managing organization">{station.operator || 'Not recorded'}</DetailItem>
                                     <DetailItem label="Installation date">{formatDate(station.established_on)}</DetailItem>
                                     <DetailItem label="Basin">{station.basin ? station.basin.code + ' — ' + station.basin.name : 'Not recorded'}</DetailItem>
@@ -249,6 +252,13 @@ export default function Show({ station, observations, importBatches, initialTab 
                     )}
 
                     {tab === 'imports' && (
+                        <>
+                        {(importBatches?.total ?? 0) > 1 && (
+                            <div className="mb-3 flex items-center justify-between rounded-lg border border-line bg-canvas/40 px-3 py-2">
+                                <p className="text-[11.5px] text-muted">Two or more uploads exist for this station. Compare a row-based file against a column-based matrix by calendar date.</p>
+                                <Link href={`/stations/${station.id}/compare`} className="shrink-0 text-[11.5px] font-medium text-brand-700 hover:text-brand-900 dark:text-brand-300">Open comparison</Link>
+                            </div>
+                        )}
                         <section>
                             {importBatches?.data?.length ? (
                                 <>
@@ -274,6 +284,7 @@ export default function Show({ station, observations, importBatches, initialTab 
                                 <EmptyState icon={FileSpreadsheet} title="No station data imports yet" description="Raw workbooks uploaded for this station will appear here with their transformation and import results." />
                             )}
                         </section>
+                        </>
                     )}
 
                     {tab === 'activity' && (

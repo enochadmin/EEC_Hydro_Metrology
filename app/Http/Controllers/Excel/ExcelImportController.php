@@ -7,6 +7,7 @@ use App\Http\Requests\Excel\ImportExcelRequest;
 use App\Http\Requests\Excel\StoreExcelUploadRequest;
 use App\Models\DataImportBatch;
 use App\Models\MonitoringStation;
+use App\Models\Parameter;
 use App\Services\Excel\ExcelFileService;
 use App\Services\Excel\ExcelImportBatchDeletionService;
 use App\Services\Excel\ExcelImportService;
@@ -66,6 +67,25 @@ class ExcelImportController extends Controller
                 'code' => $station->code,
                 'name' => $station->name,
                 'upload_url' => route('stations.imports.store', $station),
+                'configured_parameters' => $station->stationParameters()
+                    ->where('is_active', true)
+                    ->with('parameter:id,code,name')
+                    ->get()
+                    ->pluck('parameter.code')
+                    ->filter()
+                    ->values()
+                    ->all(),
+                'parameters' => Parameter::query()
+                    ->where('is_active', true)
+                    ->orderBy('sort_order')
+                    ->orderBy('name')
+                    ->get(['code', 'name', 'symbol'])
+                    ->map(fn (Parameter $parameter): array => [
+                        'code' => $parameter->code,
+                        'name' => $parameter->name,
+                        'symbol' => $parameter->symbol,
+                    ])
+                    ->all(),
             ],
         ]);
     }
@@ -82,13 +102,14 @@ class ExcelImportController extends Controller
     ): RedirectResponse {
         Gate::authorize('view', $station);
 
-        return $this->storeWorkbook($request, $station, $preparation);
+        return $this->storeWorkbook($request, $station, $preparation, $request->validated('parameter_code'));
     }
 
     private function storeWorkbook(
         StoreExcelUploadRequest $request,
         ?MonitoringStation $station = null,
         ?ExcelStationImportPreparationService $preparation = null,
+        ?string $parameterCode = null,
     ): RedirectResponse {
         $file = $request->file('file');
         $uuid = (string) Str::uuid();
@@ -122,7 +143,7 @@ class ExcelImportController extends Controller
 
         if ($station !== null && $preparation !== null) {
             try {
-                $prepared = $preparation->prepare($batch);
+                $prepared = $preparation->prepare($batch, $parameterCode);
             } catch (\Throwable $exception) {
                 return redirect()
                     ->route('excel.preview', ['batch' => $batch->uuid, 'sheet' => $sheets[0] ?? null])

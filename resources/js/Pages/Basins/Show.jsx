@@ -154,6 +154,7 @@ export default function Show({ basin, subBasins = [], stations, observations = [
                                     <DetailItem label="Basin name">{basin.name}</DetailItem>
                                     <DetailItem label="Alternative name">{basin.name_alt || 'Not recorded'}</DetailItem>
                                     <DetailItem label="Geographic area">{formatArea(basin.area_km2)}</DetailItem>
+                            <DetailItem label="Annual runoff (source figure)">{basin.annual_runoff !== null && basin.annual_runoff !== undefined ? basin.annual_runoff : 'Not recorded'}</DetailItem>
                                     <DetailItem label="Mean elevation">{formatElevation(basin.elevation_m)}</DetailItem>
                                     <DetailItem label="Centroid">
                                         {basin.centroid_lat === null || basin.centroid_lng === null

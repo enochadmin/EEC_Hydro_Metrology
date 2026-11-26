@@ -62,8 +62,13 @@ abstract class MonitoringStationRequest extends FormRequest
                     }
                 }),
             ],
+            'station_class' => [
+                'nullable',
+                'string',
+                Rule::in(array_keys(config('stations.classes'))),
+            ],
             'basin_id' => [
-                'required',
+                'nullable',
                 'integer',
                 Rule::exists('basins', 'id')->where(function ($query) use ($station): void {
                     $query->where('is_active', true)->whereNull('deleted_at');
@@ -144,6 +149,7 @@ abstract class MonitoringStationRequest extends FormRequest
             'code.regex' => 'Use letters, numbers, dots, dashes or slashes only.',
             'code.unique' => 'This station code is already registered, including archived stations.',
             'station_type.exists' => 'Choose an active station category.',
+            'station_class.in' => 'Choose a network class from the configured list.',
             'sub_basin_id.exists' => 'Choose a sub-basin that belongs to the selected basin.',
             'latitude.between' => 'Latitude must be between -90 and 90 degrees (WGS84).',
             'longitude.between' => 'Longitude must be between -180 and 180 degrees (WGS84).',
@@ -158,6 +164,7 @@ abstract class MonitoringStationRequest extends FormRequest
     {
         return [
             'station_type' => 'station category',
+            'station_class' => 'network class',
             'basin_id' => 'basin',
             'sub_basin_id' => 'sub-basin',
             'elevation_m' => 'elevation',

@@ -3,7 +3,7 @@ import AppLayout from '@/Layouts/AppLayout';
 import StationForm from '@/Pages/Stations/Partials/StationForm';
 import { Head } from '@inertiajs/react';
 
-export default function Create({ categories = [], basins = [], subBasins = [], parameters = [], dataSources = [], defaultBasinId = null }) {
+export default function Create({ categories = [], classes = [], basins = [], subBasins = [], parameters = [], dataSources = [], defaultBasinId = null }) {
     return (
         <AppLayout breadcrumbs={[{ label: 'Monitoring stations', href: '/stations' }, { label: 'Register station' }]}>
             <Head title="Register monitoring station" />
@@ -13,6 +13,7 @@ export default function Create({ categories = [], basins = [], subBasins = [], p
                     action="/stations"
                     station={{ basin_id: defaultBasinId }}
                     categories={categories}
+                    classes={classes}
                     basins={basins}
                     subBasins={subBasins}
                     parameters={parameters}

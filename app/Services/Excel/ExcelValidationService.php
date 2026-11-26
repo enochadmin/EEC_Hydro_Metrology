@@ -149,12 +149,13 @@ class ExcelValidationService
                 $unknownParameterErrors++;
                 $addIssue($row, 'UNKNOWN_PARAMETER', 'The element "'.($row['parameter'] ?? '').'" does not match a registered parameter.', 'error', 'parameter', $row['parameter'] ?? null);
             } elseif ($targetStation !== null && ! $stationParameterCodes->contains($parameterCode)) {
-                $stationParameterErrors++;
+                // A station-scoped upload registers the parameter at import
+                // time, so this informs the operator instead of blocking it.
                 $addIssue(
                     $row,
-                    'PARAMETER_NOT_ASSIGNED',
-                    'The parameter "'.($row['parameter'] ?? $parameterCode).'" is not configured as an active parameter for '.$targetStation->code.'.',
-                    'error',
+                    'PARAMETER_WILL_BE_ADDED',
+                    'The parameter "'.($row['parameter'] ?? $parameterCode).'" will be added to '.$targetStation->code.' when this workbook is imported.',
+                    'warning',
                     'parameter',
                     $row['parameter'] ?? $parameterCode,
                 );

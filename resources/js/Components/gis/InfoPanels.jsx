@@ -144,6 +144,28 @@ export function StationInfoPanel({ detail }) {
                 </span>
             </div>
 
+            {detail.reading && (
+                <div className="rounded-xl border border-sky-200/70 bg-sky-50/70 p-2.5 dark:border-sky-900/40 dark:bg-sky-950/30">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-sky-700 dark:text-sky-300">
+                        {detail.reading.parameter_name} · {formatDate(detail.reading.date)}
+                    </p>
+                    <p className="mt-1 text-xl font-semibold tabular-nums text-ink">
+                        {detail.reading.has_value
+                            ? `${formatNumber(detail.reading.value)} ${detail.reading.unit ?? ''}`.trim()
+                            : 'No reading'}
+                    </p>
+                    {detail.reading.has_value ? (
+                        <p className="mt-0.5 text-[10.5px] text-muted">
+                            Recorded {detail.reading.readings_on_day} time{detail.reading.readings_on_day === 1 ? '' : 's'} on this day
+                            {detail.reading.quality_status ? ` · ${detail.reading.quality_status}` : ''}
+                        </p>
+                    ) : (
+                        <p className="mt-0.5 text-[10.5px] text-muted">
+                            Nothing recorded for this parameter on that day.
+                        </p>
+                    )}
+                </div>
+            )}
             <div>
                 <DetailRow label="Coordinates">
                     {station.latitude === null

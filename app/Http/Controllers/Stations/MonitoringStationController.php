@@ -37,6 +37,7 @@ class MonitoringStationController extends Controller
         $filters = $request->validate([
             'search' => ['nullable', 'string', 'max:100'],
             'station_type' => ['nullable', 'string', 'max:40'],
+            'station_class' => ['nullable', 'string', 'max:30'],
             'basin_id' => ['nullable', 'integer'],
             'sub_basin_id' => ['nullable', 'integer'],
             'state' => ['nullable', 'in:active,inactive'],
@@ -70,6 +71,7 @@ class MonitoringStationController extends Controller
             'filters' => [
                 'search' => $filters['search'] ?? '',
                 'station_type' => $filters['station_type'] ?? '',
+                'station_class' => $filters['station_class'] ?? '',
                 'basin_id' => $filters['basin_id'] ?? '',
                 'sub_basin_id' => $filters['sub_basin_id'] ?? '',
                 'state' => $filters['state'] ?? '',
@@ -80,6 +82,7 @@ class MonitoringStationController extends Controller
             'categories' => $this->categoryOptions(),
             'basins' => $this->basinOptions(),
             'subBasins' => $this->subBasinOptions(),
+            'classes' => $this->classOptions(),
             'summary' => [
                 'total' => MonitoringStation::query()->count(),
                 'active' => MonitoringStation::query()->where('is_active', true)->count(),
@@ -99,6 +102,7 @@ class MonitoringStationController extends Controller
             'categories' => $this->categoryOptions(),
             'basins' => $this->basinOptions(),
             'subBasins' => $this->subBasinOptions(),
+            'classes' => $this->classOptions(),
             'parameters' => $this->parameterOptions(),
             'dataSources' => $this->dataSourceOptions(),
             'defaultBasinId' => $defaultBasinId,
@@ -212,6 +216,8 @@ class MonitoringStationController extends Controller
                 'name' => $station->name,
                 'name_alt' => $station->name_alt,
                 'station_type' => $station->station_type,
+                'station_class' => $station->station_class,
+                'class_label' => $station->classLabel(),
                 'category' => $station->category?->only(['code', 'label', 'colour', 'description']),
                 'basin' => $station->basin?->only(['id', 'code', 'name']),
                 'sub_basin' => $station->subBasin?->only(['id', 'code', 'name']),
@@ -261,6 +267,7 @@ class MonitoringStationController extends Controller
                     && ($request->user()?->can('view data') ?? false)
                     && ($request->user()?->can('transform data') ?? false),
                 'exportData' => $request->user()?->can('export data') ?? false,
+                'compare' => $request->user()?->can('view data') ?? false,
             ],
         ]);
     }
@@ -275,6 +282,7 @@ class MonitoringStationController extends Controller
                 'code' => $station->code,
                 'name' => $station->name,
                 'name_alt' => $station->name_alt,
+                'station_class' => $station->station_class,
                 'station_type' => $station->station_type,
                 'basin_id' => $station->basin_id,
                 'sub_basin_id' => $station->sub_basin_id,
@@ -290,6 +298,7 @@ class MonitoringStationController extends Controller
                 'parameter_ids' => $station->parameters()->pluck('parameters.id')->map(fn ($id): int => (int) $id)->all(),
             ],
             'categories' => $this->categoryOptions($station->station_type),
+            'classes' => $this->classOptions($station->station_class),
             'basins' => $this->basinOptions((int) $station->basin_id),
             'subBasins' => $this->subBasinOptions($station->sub_basin_id ? (int) $station->sub_basin_id : null),
             'parameters' => $this->parameterOptions($station->parameters()->pluck('parameters.id')->map(fn ($id): int => (int) $id)->all()),
@@ -359,6 +368,7 @@ class MonitoringStationController extends Controller
                 });
             })
             ->when($filters['station_type'] ?? null, fn (Builder $query, string $type) => $query->where('station_type', $type))
+            ->when($filters['station_class'] ?? null, fn (Builder $query, string $class) => $query->where('station_class', $class))
             ->when($filters['basin_id'] ?? null, fn (Builder $query, int $basinId) => $query->where('basin_id', $basinId))
             ->when($filters['sub_basin_id'] ?? null, fn (Builder $query, int $subBasinId) => $query->where('sub_basin_id', $subBasinId))
             ->when(($filters['state'] ?? null) === 'active', fn (Builder $query) => $query->where('is_active', true))
@@ -377,6 +387,9 @@ class MonitoringStationController extends Controller
             'code' => $station->code,
             'name' => $station->name,
             'name_alt' => $station->name_alt,
+            'station_class' => $station->station_class,
+            'class_label' => $station->classLabel(),
+            'class_color' => $station->classDefinition()['color'] ?? null,
             'station_type' => $station->station_type,
             'category' => $station->category?->only(['code', 'label', 'colour']),
             'basin' => $station->basin?->only(['id', 'code', 'name']),
@@ -396,6 +409,22 @@ class MonitoringStationController extends Controller
         ];
     }
 
+
+    /**
+     * Network classes available for filtering and for the station form.
+     *
+     * @return list<array{code: string, label: string, color: string, description: string}>
+     */
+    private function classOptions(?string $includeCode = null): array
+    {
+        $options = [];
+
+        foreach (config('stations.classes') as $code => $definition) {
+            $options[] = ['code' => $code, ...$definition];
+        }
+
+        return $options;
+    }
     /**
      * @return list<array{id: int, code: string, label: string, colour: string|null}>
      */
@@ -431,7 +460,7 @@ class MonitoringStationController extends Controller
                 $query->where('is_active', true);
 
                 if ($includeId !== null) {
-                    $query->orWhereKey($includeId);
+                    $query->orWhere('id', $includeId);
                 }
             })
             ->orderBy('name')
@@ -450,7 +479,7 @@ class MonitoringStationController extends Controller
                 $query->where('is_active', true);
 
                 if ($includeId !== null) {
-                    $query->orWhereKey($includeId);
+                    $query->orWhere('id', $includeId);
                 }
             })
             ->orderBy('name')
@@ -502,7 +531,7 @@ class MonitoringStationController extends Controller
                 $query->where('is_active', true);
 
                 if ($includeId !== null) {
-                    $query->orWhereKey($includeId);
+                    $query->orWhere('id', $includeId);
                 }
             })
             ->orderBy('name')

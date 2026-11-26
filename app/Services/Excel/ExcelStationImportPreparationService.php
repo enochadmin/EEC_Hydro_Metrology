@@ -3,6 +3,7 @@
 namespace App\Services\Excel;
 
 use App\Models\DataImportBatch;
+use App\Models\Parameter;
 use RuntimeException;
 
 class ExcelStationImportPreparationService
@@ -14,7 +15,7 @@ class ExcelStationImportPreparationService
         private readonly ExcelValidationService $validation,
     ) {}
 
-    public function prepare(DataImportBatch $batch): bool
+    public function prepare(DataImportBatch $batch, ?string $parameterCode = null): bool
     {
         $sheet = $this->files->sheetNames($batch)[0] ?? null;
 
@@ -46,11 +47,19 @@ class ExcelStationImportPreparationService
         $parameterIsInWorkbook = $structure === 'monthly_daily_columns'
             && ! empty($candidate['columns']['parameter']);
 
-        if (! $parameterIsInWorkbook && $stationParameters->count() !== 1) {
+        // A station can measure several elements. The operator either states
+        // which parameter this workbook carries, or the workbook names it in
+        // an element column; only a bare single-parameter file falls back to
+        // the station's sole configured parameter.
+        $providedParameter = $parameterCode !== null
+            ? Parameter::query()->where('code', $parameterCode)->first(['code', 'name'])
+            : null;
+
+        if (! $parameterIsInWorkbook && $providedParameter === null && $stationParameters->count() !== 1) {
             return false;
         }
 
-        $parameter = $parameterIsInWorkbook ? null : $stationParameters->first();
+        $parameter = $parameterIsInWorkbook ? null : ($providedParameter ?? $stationParameters->first());
         $mapping = $this->mappingFromCandidate(
             $candidate,
             $station?->name ?? '',

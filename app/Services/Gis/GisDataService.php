@@ -228,6 +228,10 @@ class GisDataService
             $query->where('sub_basin_id', $filters['sub_basin_id']);
         }
 
+        if (! empty($filters['classes']) && is_array($filters['classes'])) {
+            $query->whereIn('station_class', $filters['classes']);
+        }
+
         $stations = $query->limit($max + 1)->get();
         $truncated = $stations->count() > $max;
 
@@ -251,6 +255,9 @@ class GisDataService
                     'href' => '/stations/'.$station->id,
                     'code' => $station->code,
                     'name' => $station->name,
+                    'station_class' => $station->station_class,
+                    'class_label' => $station->classLabel(),
+                    'class_color' => $station->classDefinition()['color'] ?? null,
                     'station_type' => $station->station_type,
                     'type_label' => $type['label'] ?? $station->station_type,
                     'group' => $type['group'] ?? 'Other',
@@ -278,7 +285,7 @@ class GisDataService
     /**
      * @return array<string, mixed>
      */
-    public function stationDetail(MonitoringStation $station): array
+    public function stationDetail(MonitoringStation $station, ?string $date = null, string $parameterCode = 'rainfall'): array
     {
         $station->load([
             'basin:id,code,name',
@@ -309,6 +316,62 @@ class GisDataService
             ->selectRaw('COUNT(*) as total, MIN(measured_at) as first_at, MAX(measured_at) as last_at')
             ->first();
 
+        $unitByCode = collect($parameters)->pluck('unit', 'code')->all();
+        $selectedParameter = \App\Models\Parameter::query()
+            ->where('code', $parameterCode)
+            ->first(['id', 'code', 'name']);
+
+        $reading = null;
+        $recentReadings = [];
+
+        if ($selectedParameter !== null) {
+            $targetDate = $date !== null
+                ? \Illuminate\Support\Carbon::parse($date)->startOfDay()
+                : null;
+
+            if ($targetDate === null) {
+                $latest = HydrologicalObservation::query()
+                    ->where('monitoring_station_id', $station->id)
+                    ->where('parameter_id', $selectedParameter->id)
+                    ->max('measured_at');
+                $targetDate = $latest ? \Illuminate\Support\Carbon::parse($latest)->startOfDay() : now()->startOfDay();
+            }
+
+            $rows = HydrologicalObservation::query()
+                ->where('monitoring_station_id', $station->id)
+                ->where('parameter_id', $selectedParameter->id)
+                ->whereBetween('measured_at', [
+                    $targetDate->copy()->subDays(6)->startOfDay(),
+                    $targetDate->copy()->endOfDay(),
+                ])
+                ->orderBy('measured_at')
+                ->get(['measured_at', 'value', 'quality_status']);
+
+            $byDay = $rows->groupBy(fn ($row) => $row->measured_at->toDateString());
+            $dayRows = $byDay->get($targetDate->toDateString(), collect());
+            $primary = $dayRows->sortByDesc('measured_at')->first();
+
+            $reading = [
+                'parameter_code' => $selectedParameter->code,
+                'parameter_name' => $selectedParameter->name,
+                'unit' => $unitByCode[$selectedParameter->code] ?? null,
+                'date' => $targetDate->toDateString(),
+                'value' => $primary ? (float) $primary->value : null,
+                'measured_at' => $primary?->measured_at?->toIso8601String(),
+                'quality_status' => $primary?->quality_status,
+                'readings_on_day' => $dayRows->count(),
+                'has_value' => $primary !== null,
+            ];
+
+            $recentReadings = $byDay
+                ->map(fn ($group, $day) => [
+                    'date' => $day,
+                    'value' => (float) $group->sortByDesc('measured_at')->first()->value,
+                ])
+                ->sortKeys()
+                ->values()
+                ->all();
+        }
         return [
             'station' => [
                 'id' => $station->id,
@@ -316,6 +379,9 @@ class GisDataService
                 'code' => $station->code,
                 'name' => $station->name,
                 'name_alt' => $station->name_alt,
+                'station_class' => $station->station_class,
+                'class_label' => $station->classLabel(),
+                'class_color' => $station->classDefinition()['color'] ?? null,
                 'station_type' => $station->station_type,
                 'type_label' => $type['label'] ?? $station->station_type,
                 'group' => $type['group'] ?? 'Other',
@@ -333,6 +399,8 @@ class GisDataService
                 'data_source' => $station->dataSource?->name,
             ],
             'parameters' => $parameters,
+            'reading' => $reading,
+            'recent_readings' => $recentReadings,
             'availability' => [
                 'records' => (int) ($availability->total ?? 0),
                 'first_at' => $availability?->first_at,
@@ -657,6 +725,9 @@ class GisDataService
                 'sublabel' => trim(($station->code ?? '').' · '.($station->basin?->name ?? ''), ' ·'),
                 'lat' => $station->latitude !== null ? (float) $station->latitude : null,
                 'lng' => $station->longitude !== null ? (float) $station->longitude : null,
+                'station_class' => $station->station_class,
+                'class_label' => $station->classLabel(),
+                'class_color' => $station->classDefinition()['color'] ?? null,
                 'station_type' => $station->station_type,
                 'basin_id' => $station->basin_id,
                 'data_status' => $station->data_status,

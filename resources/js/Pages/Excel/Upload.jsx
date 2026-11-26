@@ -12,7 +12,7 @@ export default function Upload({ limits = {}, station = null }) {
     const inputRef = useRef(null);
     const [dragging, setDragging] = useState(false);
 
-    const { data, setData, post, processing, errors, progress } = useForm({ file: null });
+    const { data, setData, post, processing, errors, progress } = useForm({ file: null, parameter_code: '' });
 
     const choose = (file) => {
         if (file) {
@@ -98,6 +98,28 @@ export default function Upload({ limits = {}, station = null }) {
                                 </div>
                             )}
 
+                            {station && (
+                                <div className="rounded-lg border border-line bg-canvas/30 px-3 py-3">
+                                    <label htmlFor="parameter_code" className="text-[10.5px] font-semibold uppercase tracking-[0.12em] text-muted">Parameter in this workbook</label>
+                                    <select
+                                        id="parameter_code"
+                                        value={data.parameter_code}
+                                        onChange={(event) => setData('parameter_code', event.target.value)}
+                                        className="mt-1.5 h-9 w-full rounded-lg border-line bg-surface px-3 text-[12px] text-ink shadow-sm focus:border-brand-500 focus:ring-brand-500"
+                                    >
+                                        <option value="">Detect from the workbook (element column)</option>
+                                        {(station.parameters ?? []).map((parameter) => (
+                                            <option key={parameter.code} value={parameter.code}>{parameter.name}{parameter.symbol ? ` · ${parameter.symbol}` : ''}</option>
+                                        ))}
+                                    </select>
+                                    <p className="mt-1.5 text-[11px] leading-relaxed text-muted">
+                                        Choose the element this file carries when it has no element column. A parameter that is not configured yet is added to the station at import time.
+                                        {(station.configured_parameters ?? []).length > 0
+                                            ? ` Configured now: ${station.configured_parameters.join(', ')}.`
+                                            : ' No parameter is configured for this station yet.'}
+                                    </p>
+                                </div>
+                            )}
                             {errors.file && <p className="text-[12px] text-rose-600 dark:text-rose-400">{errors.file}</p>}
                         </CardBody>
 

@@ -29,6 +29,7 @@ class MonitoringStation extends Model
         'longitude',
         'elevation_m',
         'station_type',
+        'station_class',
         'operator',
         'established_on',
         'data_source_id',
@@ -117,5 +118,40 @@ class MonitoringStation extends Model
     public function scopeActive(Builder $query): Builder
     {
         return $query->where('is_active', true);
+    }
+
+    /**
+     * @param  Builder<MonitoringStation>  $query
+     * @param  list<string>  $classes
+     * @return Builder<MonitoringStation>
+     */
+    public function scopeInClasses(Builder $query, array $classes): Builder
+    {
+        return $classes === [] ? $query : $query->whereIn('station_class', $classes);
+    }
+
+    /**
+     * Presentation metadata for the observing network class.
+     *
+     * @return array{code: string, label: string, color: string, description: string}|null
+     */
+    public function classDefinition(): ?array
+    {
+        if ($this->station_class === null) {
+            return null;
+        }
+
+        $definition = config('stations.classes.'.$this->station_class);
+
+        if (! is_array($definition)) {
+            return ['code' => $this->station_class, 'label' => ucfirst($this->station_class), 'color' => '#64748B', 'description' => ''];
+        }
+
+        return ['code' => $this->station_class, ...$definition];
+    }
+
+    public function classLabel(): string
+    {
+        return $this->classDefinition()['label'] ?? 'Unclassified';
     }
 }

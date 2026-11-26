@@ -225,9 +225,19 @@ class ExcelImportService
                 }
 
                 if ($targetStation !== null && ! in_array($parameter->id, $stationParameterIds, true)) {
-                    throw ValidationException::withMessages([
-                        'parameter_map' => 'Parameter "'.$parameter->name.'" is not configured as an active parameter for '.$targetStation->code.'.',
+                    // The station was uploaded for this workbook, so the
+                    // parameter it carries becomes part of the station's
+                    // capability. The unique key keeps re-imports idempotent.
+                    DB::table('station_parameters')->insertOrIgnore([
+                        'monitoring_station_id' => $targetStation->id,
+                        'parameter_id' => $parameter->id,
+                        'measurement_unit_id' => $parameter->default_unit_id,
+                        'is_active' => true,
+                        'created_at' => now(),
+                        'updated_at' => now(),
                     ]);
+
+                    $stationParameterIds[] = $parameter->id;
                 }
 
                 $measuredAt = CarbonImmutable::parse($row['date'].' '.($row['time'] ?? '09:00'));

@@ -109,20 +109,32 @@ class GisController extends Controller
         $validated = $request->validate([
             'types' => ['nullable', 'array'],
             'types.*' => ['string', Rule::in(array_keys(config('gis.station_types')))],
+            'classes' => ['nullable', 'array'],
+            'classes.*' => ['string', Rule::in(array_keys(config('stations.classes')))],
             'basin_id' => ['nullable', 'integer'],
             'sub_basin_id' => ['nullable', 'integer'],
         ]);
 
         return response()->json($this->data->stationFeatures([
             'types' => $validated['types'] ?? [],
+            'classes' => $validated['classes'] ?? [],
             'basin_id' => $validated['basin_id'] ?? null,
             'sub_basin_id' => $validated['sub_basin_id'] ?? null,
         ]));
     }
 
-    public function station(MonitoringStation $station): JsonResponse
+    public function station(Request $request, MonitoringStation $station): JsonResponse
     {
-        return response()->json($this->data->stationDetail($station));
+        $validated = $request->validate([
+            'date' => ['nullable', 'date_format:Y-m-d'],
+            'parameter' => ['nullable', 'string', 'max:60'],
+        ]);
+
+        return response()->json($this->data->stationDetail(
+            $station,
+            $validated['date'] ?? null,
+            $validated['parameter'] ?? 'rainfall',
+        ));
     }
 
     public function stationsRainfall(Request $request): JsonResponse

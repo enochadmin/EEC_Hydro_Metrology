@@ -94,6 +94,7 @@ export default function Index({
         active: Boolean(initial.from && initial.to),
         from: initial.from ?? '1973-01-01',
         to: initial.to ?? '2022-12-31',
+        date: initial.date ?? '',
         parameter: initial.parameter ?? 'rainfall',
         loading: false,
         meta: null,
@@ -232,7 +233,10 @@ export default function Index({
     }, []);
 
     const applyRainfallFilter = useCallback(async (customFilter) => {
-        const target = customFilter ?? rainfallFilterRef.current;
+        const base = customFilter ?? rainfallFilterRef.current;
+        // A single-day selection narrows the range to that day, so the layer
+        // renders one value per station instead of a period total.
+        const target = base.date ? { ...base, from: base.date, to: base.date } : base;
         if (!target.from || !target.to) {
             return;
         }
@@ -269,7 +273,9 @@ export default function Index({
         }
 
         try {
-            const detail = await getJson(`/gis/data/stations/${id}`);
+            const activeFilter = rainfallFilterRef.current;
+            const dayQuery = activeFilter.date ? `&date=${activeFilter.date}` : '';
+            const detail = await getJson(`/gis/data/stations/${id}?parameter=${activeFilter.parameter}${dayQuery}`);
             const station = detail.station;
 
             if (rainfallFilterRef.current.active) {
@@ -518,6 +524,7 @@ export default function Index({
                         observationMode={rainfallFilter.active ? {
                             active: true,
                             parameterCode: rainfallFilter.parameter,
+                            date: rainfallFilter.date,
                             from: rainfallFilter.from,
                             to: rainfallFilter.to,
                         } : null}

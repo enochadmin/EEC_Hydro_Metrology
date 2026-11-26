@@ -3,7 +3,7 @@ import AppLayout from '@/Layouts/AppLayout';
 import StationForm from '@/Pages/Stations/Partials/StationForm';
 import { Head } from '@inertiajs/react';
 
-export default function Edit({ station, categories = [], basins = [], subBasins = [], parameters = [], dataSources = [] }) {
+export default function Edit({ station, categories = [], classes = [], basins = [], subBasins = [], parameters = [], dataSources = [] }) {
     return (
         <AppLayout breadcrumbs={[{ label: 'Monitoring stations', href: '/stations' }, { label: station.code, href: '/stations/' + station.id }, { label: 'Edit' }]}>
             <Head title={'Edit ' + station.name} />
@@ -14,6 +14,7 @@ export default function Edit({ station, categories = [], basins = [], subBasins 
                     method="patch"
                     station={station}
                     categories={categories}
+                    classes={classes}
                     basins={basins}
                     subBasins={subBasins}
                     parameters={parameters}
